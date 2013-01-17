@@ -13,8 +13,8 @@ Go to the desired directory and simply invoke::
   $ bitrot
 
 This will start digging through your directory structure recursively indexing
-all files found. The index is stored in a ``.bitrot.db`` file which is a DBM
-database.
+all files found. The index is stored in a ``.bitrot.db`` file which is a SQLite
+3 database.
 
 Next time you run ``bitrot`` it will add new files and update the index for
 files with a changed modification date. Most importantly however, it will

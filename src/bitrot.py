@@ -28,15 +28,16 @@ from __future__ import unicode_literals
 
 import atexit
 import datetime
-import dbm
 import hashlib
 import os
+import sqlite3
 import sys
 
 
 CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
 VERSION = (0, 1, 0)
+
 
 def sha1(path):
     digest = hashlib.sha1()
@@ -48,12 +49,24 @@ def sha1(path):
     return digest.hexdigest()
 
 
+def get_sqlite3_cursor(path):
+    conn = sqlite3.connect(path)
+    atexit.register(conn.close)
+    cur = conn.cursor()
+    for name, in cur.execute('SELECT name FROM sqlite_master'):
+        if name == 'bitrot':
+            break
+    else:
+        cur.execute('CREATE TABLE bitrot (path TEXT PRIMARY KEY, '
+                    'mtime INTEGER, hash TEXT, timestamp TEXT)')
+    return conn
+
+
 def run():
     current_dir = b'.'   # sic, relative path
-    bitrot_db = os.path.join(current_dir, b'.bitrot')
-    db = dbm.open(bitrot_db, 'c')
-    bitrot_db += b'.db'
-    atexit.register(db.close)
+    bitrot_db = os.path.join(current_dir, b'.bitrot.db')
+    conn = get_sqlite3_cursor(bitrot_db)
+    cur = conn.cursor()
     new_count = 0
     update_count = 0
     error_count = 0
@@ -69,30 +82,39 @@ def run():
                 continue
             new_mtime = int(os.stat(p).st_mtime)
             new_sha1 = sha1(p)
-            try:
-                stored_mtime, stored_sha1, update_ts = db[p].split(b' ')
-                if int(stored_mtime) != new_mtime:
-                    new_count -= 1
-                    update_count += 1
-                    raise KeyError("out of date")
-            except (KeyError, ValueError):
+            update_ts = datetime.datetime.utcnow().strftime(
+                "%Y-%m-%d %H:%M:%S%z"
+            )
+            p_uni = p.decode('utf8')
+            cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
+                        'path=?', (p_uni,))
+            row = cur.fetchone()
+            if not row:
                 new_count += 1
-                update_ts = datetime.datetime.utcnow().strftime(
-                    "%Y-%m-%d\u00a0%H:%M:%S%z".encode('utf8')
+                cur.execute('INSERT INTO bitrot VALUES (?, ?, ?, ?)',
+                    (p_uni, new_mtime, new_sha1, update_ts))
+                conn.commit()
+                continue
+            stored_mtime, stored_sha1, update_ts = row
+            if int(stored_mtime) != new_mtime:
+                update_count += 1
+                cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
+                           'WHERE path=?',
+                           (new_mtime, new_sha1, update_ts, p_uni))
+                conn.commit()
+            elif stored_sha1 != new_sha1:
+                error_count += 1
+                print("\rerror: SHA1 mismatch for {}: expected {}, got {}."
+                      " Original info from {}.".format(
+                          p, stored_sha1, new_sha1, update_ts
+                      ),
+                      file=sys.stderr,
                 )
-                db[p] = b'{} {} {}'.format(new_mtime, new_sha1, update_ts)
-            else:
-                if stored_sha1 != new_sha1:
-                    error_count += 1
-                    print("\rerror: SHA1 mismatch for {}: expected {}, got {}."
-                          " Original info from {}.".format(
-                              p, stored_sha1, new_sha1, update_ts
-                          ),
-                          file=sys.stderr,
-                    )
+    cur.execute('SELECT COUNT(path) FROM bitrot')
+    all_count = cur.fetchone()[0]
     print("\nFinished. {} errors found.".format(error_count))
     print("{} entries in the database, {} new, {} updated.".format(
-              len(db), new_count, update_count
+              all_count, new_count, update_count
     ))
     if error_count:
         sys.exit(1)
