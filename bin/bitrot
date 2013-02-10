@@ -26,5 +26,5 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from bitrot import run
-run()
+from bitrot import run_from_command_line
+run_from_command_line()

@@ -21,6 +21,9 @@ files with a changed modification date. Most importantly however, it will
 report all errors, e.g. files that changed on the hard drive but still have the
 same modification date.
 
+All paths stored in ``.bitrot.db`` are relative so it's safe to rescan a folder
+after moving it to another drive.
+
 Performance
 -----------
 
@@ -32,6 +35,13 @@ under 10 minutes. Both tests on HFS+.
 
 Change Log
 ----------
+
+0.2.0
+~~~~~
+
+* ``--verbose`` and ``--quiet`` command-line arguments
+
+* if a file is no longer there, its entry is removed from the database
 
 0.1.0
 ~~~~~

@@ -28,7 +28,8 @@ from setuptools import setup, find_packages
 reload(sys)
 sys.setdefaultencoding('utf8')
 
-ld_file = open(os.path.join(os.path.dirname(__file__), 'README.rst'))
+current_dir = os.path.abspath(os.path.dirname(__file__))
+ld_file = open(os.path.join(current_dir, 'README.rst'))
 try:
     long_description = ld_file.read()
 finally:
@@ -36,9 +37,13 @@ finally:
 # We let it die a horrible tracebacking death if reading the file fails.
 # We couldn't sensibly recover anyway: we need the long description.
 
+sys.path.insert(0, current_dir + os.sep + 'src')
+from bitrot import VERSION
+release = ".".join(str(num) for num in VERSION)
+
 setup(
     name = 'bitrot',
-    version = '0.1.0',
+    version = release,
     author = 'Łukasz Langa',
     author_email = 'lukasz@langa.pl',
     description = ("Detects bit rotten files on the hard drive to save your "
