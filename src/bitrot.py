@@ -93,7 +93,7 @@ def run(verbosity=1):
                 "%Y-%m-%d %H:%M:%S%z"
             )
             p_uni = p.decode('utf8')
-            missing_paths.remove(p_uni)
+            missing_paths.discard(p_uni)
             cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
                         'path=?', (p_uni,))
             row = cur.fetchone()
