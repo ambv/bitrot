@@ -37,7 +37,7 @@ import sys
 
 CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
-VERSION = (0, 2, 0)
+VERSION = (0, 2, 1)
 
 
 def sha1(path):
