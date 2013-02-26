@@ -36,6 +36,11 @@ under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
+0.3.0
+~~~~~
+
+* ``--sum`` command-line argument for easy comparison of multiple databases
+
 0.2.1
 ~~~~~
 

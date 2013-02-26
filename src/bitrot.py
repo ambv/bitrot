@@ -37,7 +37,7 @@ import sys
 
 CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
-VERSION = (0, 2, 1)
+VERSION = (0, 3, 0)
 
 
 def sha1(path):
@@ -152,21 +152,45 @@ def run(verbosity=1):
         sys.exit(1)
 
 
+def stable_sum():
+    current_dir = b'.'   # sic, relative path
+    bitrot_db = os.path.join(current_dir, b'.bitrot.db')
+    digest = hashlib.sha512()
+    conn = get_sqlite3_cursor(bitrot_db)
+    cur = conn.cursor()
+    cur.execute('SELECT hash FROM bitrot ORDER BY path')
+    row = cur.fetchone()
+    while row:
+        digest.update(row[0])
+        row = cur.fetchone()
+    return digest.hexdigest()
+
+
 def run_from_command_line():
     parser = argparse.ArgumentParser(prog='bitrot')
     parser.add_argument('-q', '--quiet', action='store_true',
         help='don\'t print anything besides checksum errors')
+    parser.add_argument('-s', '--sum', action='store_true',
+        help='using only the data already gathered, return a SHA-512 sum '
+             'of hashes of all the entries in the database. No timestamps '
+             'are used in calculation.')
     parser.add_argument('-v', '--verbose', action='store_true',
         help='list new, updated and missing entries')
     parser.add_argument('--version', action='version',
         version='%(prog)s {}.{}.{}'.format(*VERSION))
     args = parser.parse_args()
-    verbosity = 1
-    if args.quiet:
-        verbosity = 0
-    elif args.verbose:
-        verbosity = 2
-    run(verbosity=verbosity)
+    if args.sum:
+        try:
+            print(stable_sum())
+        except RuntimeError as e:
+            print(unicode(e).encode('utf8'), file=sys.stderr)
+    else:
+        verbosity = 1
+        if args.quiet:
+            verbosity = 0
+        elif args.verbose:
+            verbosity = 2
+        run(verbosity=verbosity)
 
 
 if __name__ == '__main__':
