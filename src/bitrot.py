@@ -32,12 +32,13 @@ import datetime
 import hashlib
 import os
 import sqlite3
+import stat
 import sys
 
 
 CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
-VERSION = (0, 3, 0)
+VERSION = (0, 4, 0)
 
 
 def sha1(path):
@@ -70,54 +71,77 @@ def run(verbosity=1):
     cur = conn.cursor()
     new_paths = []
     updated_paths = []
+    renamed_paths = []
     error_count = 0
-    dot_count = 0
+    total_size = 0
+    current_size = 0
     missing_paths = set()
     cur.execute('SELECT path FROM bitrot')
     row = cur.fetchone()
     while row:
         missing_paths.add(row[0])
         row = cur.fetchone()
+    paths = []
     for path, _, files in os.walk(current_dir):
         for f in files:
-            if verbosity and not dot_count:
-                sys.stdout.write('.')
-                sys.stdout.flush()
-            dot_count = (dot_count + 1) % DOT_THRESHOLD
             p = os.path.join(path, f)
-            if p == bitrot_db:
+            st = os.stat(p)
+            if not stat.S_ISREG(st.st_mode) or p == bitrot_db:
                 continue
-            new_mtime = int(os.stat(p).st_mtime)
-            new_sha1 = sha1(p)
-            update_ts = datetime.datetime.utcnow().strftime(
-                "%Y-%m-%d %H:%M:%S%z"
-            )
-            p_uni = p.decode('utf8')
-            missing_paths.discard(p_uni)
-            cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
-                        'path=?', (p_uni,))
-            row = cur.fetchone()
-            if not row:
+            paths.append(p)
+            total_size += st.st_size
+    paths.sort()
+    for p in paths:
+        st = os.stat(p)
+        new_mtime = int(st.st_mtime)
+        current_size += st.st_size
+        if verbosity:
+            sys.stdout.write('\r{:>6.1%}'.format(current_size/total_size))
+            sys.stdout.flush()
+        new_sha1 = sha1(p)
+        update_ts = datetime.datetime.utcnow().strftime(
+            "%Y-%m-%d %H:%M:%S%z"
+        )
+        p_uni = p.decode('utf8')
+        missing_paths.discard(p_uni)
+        cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
+                    'path=?', (p_uni,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute('SELECT mtime, path, timestamp FROM bitrot WHERE '
+                        'hash=?', (new_sha1,))
+            rows = cur.fetchall()
+            for row in rows:
+                stored_mtime, stored_path, update_ts = row
+                if not os.path.exists(stored_path):
+                    renamed_paths.append((stored_path, p_uni))
+                    missing_paths.discard(stored_path)
+                    cur.execute('UPDATE bitrot SET mtime=?, path=?, '
+                                'timestamp=? WHERE hash=?',
+                                (new_mtime, p_uni, update_ts, new_sha1))
+                    conn.commit()
+                    break
+            else:
                 new_paths.append(p)
                 cur.execute('INSERT INTO bitrot VALUES (?, ?, ?, ?)',
                     (p_uni, new_mtime, new_sha1, update_ts))
                 conn.commit()
-                continue
-            stored_mtime, stored_sha1, update_ts = row
-            if int(stored_mtime) != new_mtime:
-                updated_paths.append(p)
-                cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
-                           'WHERE path=?',
-                           (new_mtime, new_sha1, update_ts, p_uni))
-                conn.commit()
-            elif stored_sha1 != new_sha1:
-                error_count += 1
-                print("\rerror: SHA1 mismatch for {}: expected {}, got {}."
-                      " Original info from {}.".format(
-                          p, stored_sha1, new_sha1, update_ts
-                      ),
-                      file=sys.stderr,
-                )
+            continue
+        stored_mtime, stored_sha1, update_ts = row
+        if int(stored_mtime) != new_mtime:
+            updated_paths.append(p)
+            cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
+                        'WHERE path=?',
+                        (new_mtime, new_sha1, update_ts, p_uni))
+            conn.commit()
+        elif stored_sha1 != new_sha1:
+            error_count += 1
+            print("\rerror: SHA1 mismatch for {}: expected {}, got {}."
+                    " Original info from {}.".format(
+                        p, stored_sha1, new_sha1, update_ts
+                    ),
+                    file=sys.stderr,
+            )
     for path in missing_paths:
         cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
         conn.commit()
@@ -126,9 +150,10 @@ def run(verbosity=1):
     if verbosity:
         print("\rFinished. {} errors found.".format(error_count))
         if verbosity == 1:
-            print("{} entries in the database, {} new, {} updated, {} missing."
-                  "".format(all_count, len(new_paths), len(updated_paths),
-                            len(missing_paths)))
+            print("{} entries in the database, {} new, {} updated, "
+                  "{} renamed, {} missing.".format(all_count, len(new_paths),
+                      len(updated_paths), len(renamed_paths), len(missing_paths)
+            ))
         elif verbosity > 1:
             print("{} entries in the database.".format(all_count), end=' ')
             if new_paths:
@@ -141,6 +166,11 @@ def run(verbosity=1):
                 updated_paths.sort()
                 for path in updated_paths:
                     print(" ", path)
+            if renamed_paths:
+                print("{} entries renamed:".format(len(renamed_paths)))
+                renamed_paths.sort()
+                for path in renamed_paths:
+                    print(" from", path[0], "to", path[1])
             if missing_paths:
                 print("{} entries missing:".format(len(missing_paths)))
                 missing_paths = sorted(missing_paths)

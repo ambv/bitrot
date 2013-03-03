@@ -36,6 +36,15 @@ under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
+0.4.0
+~~~~~
+
+* renames are now reported as such
+
+* all non-regular files (e.g. symbolic links, pipes, sockets) are now skipped
+
+* progress presented in percentage
+
 0.3.0
 ~~~~~
 
