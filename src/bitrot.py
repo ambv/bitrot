@@ -75,6 +75,7 @@ def run(verbosity=1):
     error_count = 0
     total_size = 0
     current_size = 0
+    last_reported_size = ''
     missing_paths = set()
     cur.execute('SELECT path FROM bitrot')
     row = cur.fetchone()
@@ -96,11 +97,14 @@ def run(verbosity=1):
         new_mtime = int(st.st_mtime)
         current_size += st.st_size
         if verbosity:
-            sys.stdout.write('\r{:>6.1%}'.format(current_size/total_size))
-            sys.stdout.flush()
+            size_fmt = '\r{:>6.1%}'.format(current_size/total_size)
+            if size_fmt != last_reported_size:
+                sys.stdout.write(size_fmt)
+                sys.stdout.flush()
+                last_reported_size = size_fmt
         new_sha1 = sha1(p)
         update_ts = datetime.datetime.utcnow().strftime(
-            "%Y-%m-%d %H:%M:%S%z"
+            '%Y-%m-%d %H:%M:%S%z'
         )
         p_uni = p.decode('utf8')
         missing_paths.discard(p_uni)
@@ -136,11 +140,11 @@ def run(verbosity=1):
             conn.commit()
         elif stored_sha1 != new_sha1:
             error_count += 1
-            print("\rerror: SHA1 mismatch for {}: expected {}, got {}."
-                    " Original info from {}.".format(
+            print('\rerror: SHA1 mismatch for {}: expected {}, got {}.'
+                  ' Original info from {}.'.format(
                         p, stored_sha1, new_sha1, update_ts
-                    ),
-                    file=sys.stderr,
+                  ),
+                  file=sys.stderr,
             )
     for path in missing_paths:
         cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
@@ -148,34 +152,35 @@ def run(verbosity=1):
     cur.execute('SELECT COUNT(path) FROM bitrot')
     all_count = cur.fetchone()[0]
     if verbosity:
-        print("\rFinished. {} errors found.".format(error_count))
+        print('\rFinished. {:.2f} MiB of data read. {} errors found.'
+              ''.format(total_size/1024/1024, error_count))
         if verbosity == 1:
-            print("{} entries in the database, {} new, {} updated, "
-                  "{} renamed, {} missing.".format(all_count, len(new_paths),
+            print('{} entries in the database, {} new, {} updated, '
+                  '{} renamed, {} missing.'.format(all_count, len(new_paths),
                       len(updated_paths), len(renamed_paths), len(missing_paths)
             ))
         elif verbosity > 1:
-            print("{} entries in the database.".format(all_count), end=' ')
+            print('{} entries in the database.'.format(all_count), end=' ')
             if new_paths:
-                print("{} entries new:".format(len(new_paths)))
+                print('{} entries new:'.format(len(new_paths)))
                 new_paths.sort()
                 for path in new_paths:
-                    print(" ", path)
+                    print(' ', path)
             if updated_paths:
-                print("{} entries updated:".format(len(updated_paths)))
+                print('{} entries updated:'.format(len(updated_paths)))
                 updated_paths.sort()
                 for path in updated_paths:
-                    print(" ", path)
+                    print(' ', path)
             if renamed_paths:
-                print("{} entries renamed:".format(len(renamed_paths)))
+                print('{} entries renamed:'.format(len(renamed_paths)))
                 renamed_paths.sort()
                 for path in renamed_paths:
-                    print(" from", path[0], "to", path[1])
+                    print(' from', path[0], 'to', path[1])
             if missing_paths:
-                print("{} entries missing:".format(len(missing_paths)))
+                print('{} entries missing:'.format(len(missing_paths)))
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
-                    print(" ", path)
+                    print(' ', path)
             if not any((new_paths, updated_paths, missing_paths)):
                 print()
     if error_count:
