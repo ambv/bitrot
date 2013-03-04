@@ -29,12 +29,19 @@ Performance
 
 Obviously depends on how fast the underlying drive is. No rigorous performance
 tests have been done. For informational purposes, on my typical 5400 RPM laptop
-hard drive scanning a 60+ GB music library takes around 20 minutes. On an OCZ
+hard drive scanning a 60+ GB music library takes around 15 minutes. On an OCZ
 Vertex 3 SSD drive ``bitrot`` is able to scan a 100 GB Aperture library in
 under 10 minutes. Both tests on HFS+.
 
 Change Log
 ----------
+
+0.4.1
+~~~~~
+
+* size of the data read is reported upon finish
+
+* minor performance updates
 
 0.4.0
 ~~~~~
