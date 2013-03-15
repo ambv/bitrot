@@ -36,8 +36,11 @@ under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
-0.4.1
+0.5.0
 ~~~~~
+
+* ``--test`` command-line argument for testing the state without updating the
+  database on disk (works for testing databases you don't have write access to)
 
 * size of the data read is reported upon finish
 

@@ -31,14 +31,16 @@ import atexit
 import datetime
 import hashlib
 import os
+import shutil
 import sqlite3
 import stat
 import sys
+import tempfile
 
 
 CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
-VERSION = (0, 4, 0)
+VERSION = (0, 5, 0)
 
 
 def sha1(path):
@@ -51,7 +53,20 @@ def sha1(path):
     return digest.hexdigest()
 
 
-def get_sqlite3_cursor(path):
+def get_sqlite3_cursor(path, copy=False):
+    if copy:
+        if not os.path.exists(path):
+            raise ValueError("error: bitrot database at {} does not exist."
+                             "".format(path))
+        db_copy = tempfile.NamedTemporaryFile(prefix='bitrot_', suffix='.db',
+                                              delete=False)
+        with open(path, 'rb') as db_orig:
+            try:
+                shutil.copyfileobj(db_orig, db_copy)
+            finally:
+                db_copy.close()
+        path = db_copy.name
+        atexit.register(os.unlink, path)
     conn = sqlite3.connect(path)
     atexit.register(conn.close)
     cur = conn.cursor()
@@ -64,10 +79,10 @@ def get_sqlite3_cursor(path):
     return conn
 
 
-def run(verbosity=1):
+def run(verbosity=1, test=False):
     current_dir = b'.'   # sic, relative path
     bitrot_db = os.path.join(current_dir, b'.bitrot.db')
-    conn = get_sqlite3_cursor(bitrot_db)
+    conn = get_sqlite3_cursor(bitrot_db, copy=test)
     cur = conn.cursor()
     new_paths = []
     updated_paths = []
@@ -183,6 +198,7 @@ def run(verbosity=1):
                     print(' ', path)
             if not any((new_paths, updated_paths, missing_paths)):
                 print()
+        print('warning: database file not updated on disk (test mode).')
     if error_count:
         sys.exit(1)
 
@@ -211,6 +227,8 @@ def run_from_command_line():
              'are used in calculation.')
     parser.add_argument('-v', '--verbose', action='store_true',
         help='list new, updated and missing entries')
+    parser.add_argument('-t', '--test', action='store_true',
+        help='just test against an existing database, don\'t update anything')
     parser.add_argument('--version', action='version',
         version='%(prog)s {}.{}.{}'.format(*VERSION))
     args = parser.parse_args()
@@ -225,7 +243,7 @@ def run_from_command_line():
             verbosity = 0
         elif args.verbose:
             verbosity = 2
-        run(verbosity=verbosity)
+        run(verbosity=verbosity, test=args.test)
 
 
 if __name__ == '__main__':
