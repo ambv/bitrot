@@ -36,6 +36,11 @@ under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
+0.5.1
+~~~~~
+
+* bugfix: warn about test mode only in test mode
+
 0.5.0
 ~~~~~
 

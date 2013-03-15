@@ -40,7 +40,7 @@ import tempfile
 
 CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
-VERSION = (0, 5, 0)
+VERSION = (0, 5, 1)
 
 
 def sha1(path):
@@ -198,7 +198,8 @@ def run(verbosity=1, test=False):
                     print(' ', path)
             if not any((new_paths, updated_paths, missing_paths)):
                 print()
-        print('warning: database file not updated on disk (test mode).')
+        if test:
+            print('warning: database file not updated on disk (test mode).')
     if error_count:
         sys.exit(1)
 
