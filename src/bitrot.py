@@ -101,7 +101,7 @@ def run(verbosity=1, test=False):
     for path, _, files in os.walk(current_dir):
         for f in files:
             p = os.path.join(path, f)
-            st = os.stat(p)
+            st = os.lstat(p)
             if not stat.S_ISREG(st.st_mode) or p == bitrot_db:
                 continue
             paths.append(p)

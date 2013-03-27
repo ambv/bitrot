@@ -36,6 +36,11 @@ under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
+0.5.2
+~~~~~
+
+* bugfix: symbolic links are now properly skipped
+
 0.5.1
 ~~~~~
 
