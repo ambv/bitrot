@@ -101,11 +101,17 @@ def run(verbosity=1, test=False):
     for path, _, files in os.walk(current_dir):
         for f in files:
             p = os.path.join(path, f)
-            st = os.stat(p)
-            if not stat.S_ISREG(st.st_mode) or p == bitrot_db:
-                continue
-            paths.append(p)
-            total_size += st.st_size
+            try:
+                st = os.stat(p)
+            except OSError as ex:
+                #import pdb; pdb.set_trace()
+                if ex.errno != 2:
+                    raise
+            else:
+                if not stat.S_ISREG(st.st_mode) or p == bitrot_db:
+                    continue
+                paths.append(p)
+                total_size += st.st_size
     paths.sort()
     for p in paths:
         st = os.stat(p)
