@@ -104,7 +104,6 @@ def run(verbosity=1, test=False):
             try:
                 st = os.stat(p)
             except OSError as ex:
-                #import pdb; pdb.set_trace()
                 if ex.errno != 2:
                     raise
             else:
