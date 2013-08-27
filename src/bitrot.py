@@ -70,12 +70,12 @@ def get_sqlite3_cursor(path, copy=False):
     conn = sqlite3.connect(path)
     atexit.register(conn.close)
     cur = conn.cursor()
-    for name, in cur.execute('SELECT name FROM sqlite_master'):
-        if name == 'bitrot':
-            break
-    else:
+    names = set(name for name, in cur.execute('SELECT name FROM sqlite_master'))
+    if 'bitrot' not in names:
         cur.execute('CREATE TABLE bitrot (path TEXT PRIMARY KEY, '
                     'mtime INTEGER, hash TEXT, timestamp TEXT)')
+    if 'bitrot_hash_idx' not in names:
+        cur.execute('CREATE INDEX bitrot_hash_idx ON bitrot (hash)')
     return conn
 
 
