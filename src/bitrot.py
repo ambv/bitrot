@@ -36,6 +36,7 @@ import sqlite3
 import stat
 import sys
 import tempfile
+import time
 
 
 CHUNK_SIZE = 16384
@@ -79,7 +80,7 @@ def get_sqlite3_cursor(path, copy=False):
     return conn
 
 
-def run(verbosity=1, test=False):
+def run(verbosity=1, test=False, commit_interval=300):
     current_dir = b'.'   # sic, relative path
     bitrot_db = os.path.join(current_dir, b'.bitrot.db')
     conn = get_sqlite3_cursor(bitrot_db, copy=test)
@@ -107,6 +108,11 @@ def run(verbosity=1, test=False):
             paths.append(p)
             total_size += st.st_size
     paths.sort()
+    last_commit_time = [time.time()]
+    def throttled_commit():
+        if time.time() - last_commit_time[0] > commit_interval:
+            conn.commit()
+            last_commit_time[0] = time.time()
     for p in paths:
         st = os.stat(p)
         new_mtime = int(st.st_mtime)
@@ -138,13 +144,13 @@ def run(verbosity=1, test=False):
                     cur.execute('UPDATE bitrot SET mtime=?, path=?, '
                                 'timestamp=? WHERE hash=?',
                                 (new_mtime, p_uni, update_ts, new_sha1))
-                    conn.commit()
+                    throttled_commit()
                     break
             else:
                 new_paths.append(p)
                 cur.execute('INSERT INTO bitrot VALUES (?, ?, ?, ?)',
                     (p_uni, new_mtime, new_sha1, update_ts))
-                conn.commit()
+                throttled_commit()
             continue
         stored_mtime, stored_sha1, update_ts = row
         if int(stored_mtime) != new_mtime:
@@ -152,7 +158,7 @@ def run(verbosity=1, test=False):
             cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
                         'WHERE path=?',
                         (new_mtime, new_sha1, update_ts, p_uni))
-            conn.commit()
+            throttled_commit()
         elif stored_sha1 != new_sha1:
             error_count += 1
             print('\rerror: SHA1 mismatch for {}: expected {}, got {}.'
@@ -163,7 +169,8 @@ def run(verbosity=1, test=False):
             )
     for path in missing_paths:
         cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
-        conn.commit()
+        throttled_commit()
+    conn.commit()
     cur.execute('SELECT COUNT(path) FROM bitrot')
     all_count = cur.fetchone()[0]
     if verbosity:
@@ -232,6 +239,8 @@ def run_from_command_line():
         help='just test against an existing database, don\'t update anything')
     parser.add_argument('--version', action='version',
         version='%(prog)s {}.{}.{}'.format(*VERSION))
+    parser.add_argument('--commit-interval', type=float, default=300,
+        help='min time between commits (0 commits on every operation)')
     args = parser.parse_args()
     if args.sum:
         try:
@@ -244,7 +253,7 @@ def run_from_command_line():
             verbosity = 0
         elif args.verbose:
             verbosity = 2
-        run(verbosity=verbosity, test=args.test)
+        run(verbosity=verbosity, test=args.test, commit_interval=args.commit_interval)
 
 
 if __name__ == '__main__':
