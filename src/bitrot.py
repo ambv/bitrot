@@ -39,19 +39,10 @@ import tempfile
 import time
 
 
-CHUNK_SIZE = 16384
+DEFAULT_CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
 VERSION = (0, 5, 1)
 
-
-def sha1(path):
-    digest = hashlib.sha1()
-    with open(path) as f:
-        d = f.read(CHUNK_SIZE)
-        while d:
-            digest.update(d)
-            d = f.read(CHUNK_SIZE)
-    return digest.hexdigest()
 
 
 def get_sqlite3_cursor(path, copy=False):
@@ -80,7 +71,7 @@ def get_sqlite3_cursor(path, copy=False):
     return conn
 
 
-def run(verbosity=1, test=False, commit_interval=300):
+def run(verbosity=1, test=False, commit_interval=300, chunk_size=DEFAULT_CHUNK_SIZE):
     current_dir = b'.'   # sic, relative path
     bitrot_db = os.path.join(current_dir, b'.bitrot.db')
     conn = get_sqlite3_cursor(bitrot_db, copy=test)
@@ -113,6 +104,14 @@ def run(verbosity=1, test=False, commit_interval=300):
         if time.time() - last_commit_time[0] > commit_interval:
             conn.commit()
             last_commit_time[0] = time.time()
+    def sha1(path):
+        digest = hashlib.sha1()
+        with open(path) as f:
+            d = f.read(chunk_size)
+            while d:
+                digest.update(d)
+                d = f.read(chunk_size)
+        return digest.hexdigest()
     for p in paths:
         st = os.stat(p)
         new_mtime = int(st.st_mtime)
@@ -241,6 +240,8 @@ def run_from_command_line():
         version='%(prog)s {}.{}.{}'.format(*VERSION))
     parser.add_argument('--commit-interval', type=float, default=300,
         help='min time between commits (0 commits on every operation)')
+    parser.add_argument('--chunk-size', type=int, default=DEFAULT_CHUNK_SIZE,
+        help='read files this many bytes at a time')
     args = parser.parse_args()
     if args.sum:
         try:
@@ -253,7 +254,9 @@ def run_from_command_line():
             verbosity = 0
         elif args.verbose:
             verbosity = 2
-        run(verbosity=verbosity, test=args.test, commit_interval=args.commit_interval)
+        run(verbosity=verbosity, test=args.test,
+            commit_interval=args.commit_interval,
+            chunk_size=args.chunk_size)
 
 
 if __name__ == '__main__':
