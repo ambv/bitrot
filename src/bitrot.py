@@ -29,6 +29,7 @@ from __future__ import unicode_literals
 import argparse
 import atexit
 import datetime
+import errno
 import hashlib
 import os
 import shutil
@@ -104,7 +105,7 @@ def run(verbosity=1, test=False):
             try:
                 st = os.stat(p)
             except OSError as ex:
-                if ex.errno != 2:
+                if ex.errno != errno.ENOENT:
                     raise
             else:
                 if not stat.S_ISREG(st.st_mode) or p == bitrot_db:
