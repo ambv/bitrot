@@ -29,6 +29,7 @@ from __future__ import unicode_literals
 import argparse
 import atexit
 import datetime
+import functools
 import hashlib
 import os
 import shutil
@@ -44,6 +45,20 @@ DOT_THRESHOLD = 200
 VERSION = (0, 5, 1)
 
 
+def sha1(path, chunk_size):
+    digest = hashlib.sha1()
+    with open(path) as f:
+        d = f.read(chunk_size)
+        while d:
+            digest.update(d)
+            d = f.read(chunk_size)
+    return digest.hexdigest()
+
+def throttled_commit(conn, commit_interval, last_commit_time):
+    if time.time() - last_commit_time > commit_interval:
+        conn.commit()
+        return time.time()
+    return last_commit_time
 
 def get_sqlite3_cursor(path, copy=False):
     if copy:
@@ -99,19 +114,8 @@ def run(verbosity=1, test=False, commit_interval=300, chunk_size=DEFAULT_CHUNK_S
             paths.append(p)
             total_size += st.st_size
     paths.sort()
-    last_commit_time = [time.time()]
-    def throttled_commit():
-        if time.time() - last_commit_time[0] > commit_interval:
-            conn.commit()
-            last_commit_time[0] = time.time()
-    def sha1(path):
-        digest = hashlib.sha1()
-        with open(path) as f:
-            d = f.read(chunk_size)
-            while d:
-                digest.update(d)
-                d = f.read(chunk_size)
-        return digest.hexdigest()
+    last_commit_time = 0
+    tcommit = functools.partial(throttled_commit, conn, commit_interval)
     for p in paths:
         st = os.stat(p)
         new_mtime = int(st.st_mtime)
@@ -122,7 +126,7 @@ def run(verbosity=1, test=False, commit_interval=300, chunk_size=DEFAULT_CHUNK_S
                 sys.stdout.write(size_fmt)
                 sys.stdout.flush()
                 last_reported_size = size_fmt
-        new_sha1 = sha1(p)
+        new_sha1 = sha1(p, chunk_size)
         update_ts = datetime.datetime.utcnow().strftime(
             '%Y-%m-%d %H:%M:%S%z'
         )
@@ -143,13 +147,14 @@ def run(verbosity=1, test=False, commit_interval=300, chunk_size=DEFAULT_CHUNK_S
                     cur.execute('UPDATE bitrot SET mtime=?, path=?, '
                                 'timestamp=? WHERE hash=?',
                                 (new_mtime, p_uni, update_ts, new_sha1))
-                    throttled_commit()
+
+                    last_commit_time = tcommit(last_commit_time)
                     break
             else:
                 new_paths.append(p)
                 cur.execute('INSERT INTO bitrot VALUES (?, ?, ?, ?)',
                     (p_uni, new_mtime, new_sha1, update_ts))
-                throttled_commit()
+                last_commit_time = tcommit(last_commit_time)
             continue
         stored_mtime, stored_sha1, update_ts = row
         if int(stored_mtime) != new_mtime:
@@ -157,7 +162,7 @@ def run(verbosity=1, test=False, commit_interval=300, chunk_size=DEFAULT_CHUNK_S
             cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
                         'WHERE path=?',
                         (new_mtime, new_sha1, update_ts, p_uni))
-            throttled_commit()
+            last_commit_time = tcommit(last_commit_time)
         elif stored_sha1 != new_sha1:
             error_count += 1
             print('\rerror: SHA1 mismatch for {}: expected {}, got {}.'
@@ -168,7 +173,7 @@ def run(verbosity=1, test=False, commit_interval=300, chunk_size=DEFAULT_CHUNK_S
             )
     for path in missing_paths:
         cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
-        throttled_commit()
+        last_commit_time = tcommit(last_commit_time)
     conn.commit()
     cur.execute('SELECT COUNT(path) FROM bitrot')
     all_count = cur.fetchone()[0]
