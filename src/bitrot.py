@@ -112,7 +112,7 @@ def run(verbosity=1, test=False):
         new_mtime = int(st.st_mtime)
         current_size += st.st_size
         if verbosity:
-            size_fmt = '\r{:>6.1%}'.format(current_size/total_size)
+            size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
             if size_fmt != last_reported_size:
                 sys.stdout.write(size_fmt)
                 sys.stdout.flush()
