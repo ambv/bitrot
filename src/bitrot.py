@@ -29,6 +29,7 @@ from __future__ import unicode_literals
 import argparse
 import atexit
 import datetime
+import errno
 import hashlib
 import os
 import shutil
@@ -70,12 +71,12 @@ def get_sqlite3_cursor(path, copy=False):
     conn = sqlite3.connect(path)
     atexit.register(conn.close)
     cur = conn.cursor()
-    for name, in cur.execute('SELECT name FROM sqlite_master'):
-        if name == 'bitrot':
-            break
-    else:
+    names = set(name for name, in cur.execute('SELECT name FROM sqlite_master'))
+    if 'bitrot' not in names:
         cur.execute('CREATE TABLE bitrot (path TEXT PRIMARY KEY, '
                     'mtime INTEGER, hash TEXT, timestamp TEXT)')
+    if 'bitrot_hash_idx' not in names:
+        cur.execute('CREATE INDEX bitrot_hash_idx ON bitrot (hash)')
     return conn
 
 
@@ -101,18 +102,23 @@ def run(verbosity=1, test=False):
     for path, _, files in os.walk(current_dir):
         for f in files:
             p = os.path.join(path, f)
-            st = os.lstat(p)
-            if not stat.S_ISREG(st.st_mode) or p == bitrot_db:
-                continue
-            paths.append(p)
-            total_size += st.st_size
+            try:
+                st = os.lstat(p)
+            except OSError as ex:
+                if ex.errno != errno.ENOENT:
+                    raise
+            else:
+                if not stat.S_ISREG(st.st_mode) or p == bitrot_db:
+                    continue
+                paths.append(p)
+                total_size += st.st_size
     paths.sort()
     for p in paths:
         st = os.stat(p)
         new_mtime = int(st.st_mtime)
         current_size += st.st_size
         if verbosity:
-            size_fmt = '\r{:>6.1%}'.format(current_size/total_size)
+            size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
             if size_fmt != last_reported_size:
                 sys.stdout.write(size_fmt)
                 sys.stdout.flush()
