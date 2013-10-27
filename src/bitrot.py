@@ -86,6 +86,7 @@ def get_sqlite3_cursor(path, copy=False):
                     'mtime INTEGER, hash TEXT, timestamp TEXT)')
     if 'bitrot_hash_idx' not in names:
         cur.execute('CREATE INDEX bitrot_hash_idx ON bitrot (hash)')
+    atexit.register(conn.commit)
     return conn
 
 
