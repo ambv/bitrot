@@ -36,10 +36,15 @@ under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
-0.5.2
+0.6.0
 ~~~~~
 
+* more control over performance with ``--commit-interval`` and
+  ``--chunk-size`` command-line arguments
+
 * bugfix: symbolic links are now properly skipped
+
+* bugfix: fixed a rare division by zero when run in an empty directory
 
 0.5.1
 ~~~~~
@@ -90,4 +95,5 @@ Change Log
 Authors
 -------
 
-Glued together by `Łukasz Langa <mailto:lukasz@langa.pl>`_.
+Glued together by `Łukasz Langa <mailto:lukasz@langa.pl>`_. Multiple
+improvements by `Yang Zhang <mailto:yaaang@gmail.com>`_.

@@ -43,7 +43,7 @@ import time
 
 DEFAULT_CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
-VERSION = (0, 5, 1)
+VERSION = (0, 6, 0)
 
 
 def sha1(path, chunk_size):
@@ -55,11 +55,13 @@ def sha1(path, chunk_size):
             d = f.read(chunk_size)
     return digest.hexdigest()
 
+
 def throttled_commit(conn, commit_interval, last_commit_time):
     if time.time() - last_commit_time > commit_interval:
         conn.commit()
-        return time.time()
+        last_commit_time = time.time()
     return last_commit_time
+
 
 def get_sqlite3_cursor(path, copy=False):
     if copy:
@@ -87,7 +89,8 @@ def get_sqlite3_cursor(path, copy=False):
     return conn
 
 
-def run(verbosity=1, test=False, commit_interval=300, chunk_size=DEFAULT_CHUNK_SIZE):
+def run(verbosity=1, test=False, commit_interval=300,
+        chunk_size=DEFAULT_CHUNK_SIZE):
     current_dir = b'.'   # sic, relative path
     bitrot_db = os.path.join(current_dir, b'.bitrot.db')
     conn = get_sqlite3_cursor(bitrot_db, copy=test)
