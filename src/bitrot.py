@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (C) 2013 by Łukasz Langa
-# 
+
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
@@ -90,7 +90,7 @@ def get_sqlite3_cursor(path, copy=False):
     return conn
 
 
-def run(verbosity=1, test=False, commit_interval=300,
+def run(verbosity=1, test=False, follow_links=False, commit_interval=300,
         chunk_size=DEFAULT_CHUNK_SIZE):
     current_dir = b'.'   # sic, relative path
     bitrot_db = os.path.join(current_dir, b'.bitrot.db')
@@ -113,8 +113,12 @@ def run(verbosity=1, test=False, commit_interval=300,
     for path, _, files in os.walk(current_dir):
         for f in files:
             p = os.path.join(path, f)
+            p_uni = p.decode('utf8')
             try:
-                st = os.lstat(p)
+                if follow_links or p_uni in missing_paths:
+                    st = os.stat(p)
+                else:
+                    st = os.lstat(p)
             except OSError as ex:
                 if ex.errno != errno.ENOENT:
                     raise
@@ -136,12 +140,22 @@ def run(verbosity=1, test=False, commit_interval=300,
                 sys.stdout.write(size_fmt)
                 sys.stdout.flush()
                 last_reported_size = size_fmt
-        new_sha1 = sha1(p, chunk_size)
+        p_uni = p.decode('utf8')
+        missing_paths.discard(p_uni)
+        try:
+            new_sha1 = sha1(p, chunk_size)
+        except (IOError, OSError) as e:
+            if verbosity:
+                print(
+                    '\rwarning: cannot compute hash of {} [{}]'.format(
+                        p, errno.errorcode[e.args[0]],
+                    ),
+                    file=sys.stderr,
+                )
+            continue
         update_ts = datetime.datetime.utcnow().strftime(
             '%Y-%m-%d %H:%M:%S%z'
         )
-        p_uni = p.decode('utf8')
-        missing_paths.discard(p_uni)
         cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
                     'path=?', (p_uni,))
         row = cur.fetchone()
@@ -241,6 +255,13 @@ def stable_sum():
 
 def run_from_command_line():
     parser = argparse.ArgumentParser(prog='bitrot')
+    parser.add_argument('-l', '--follow-links', action='store_true',
+        help='follow symbolic links and store target files\' hashes. Once '
+             'a path is present in the database, it will be checked against '
+             'changes in content even if it becomes a symbolic link. In '
+             'other words, if you run `bitrot -l`, on subsequent runs '
+             'symbolic links registered during the first run will be '
+             'properly followed and checked even if you run without `-l`.')
     parser.add_argument('-q', '--quiet', action='store_true',
         help='don\'t print anything besides checksum errors')
     parser.add_argument('-s', '--sum', action='store_true',
@@ -254,7 +275,8 @@ def run_from_command_line():
     parser.add_argument('--version', action='version',
         version='%(prog)s {}.{}.{}'.format(*VERSION))
     parser.add_argument('--commit-interval', type=float, default=300,
-        help='min time between commits (0 commits on every operation)')
+        help='min time in seconds between commits '
+             '(0 commits on every operation)')
     parser.add_argument('--chunk-size', type=int, default=DEFAULT_CHUNK_SIZE,
         help='read files this many bytes at a time')
     args = parser.parse_args()
@@ -269,9 +291,12 @@ def run_from_command_line():
             verbosity = 0
         elif args.verbose:
             verbosity = 2
-        run(verbosity=verbosity, test=args.test,
+        run(verbosity=verbosity,
+            test=args.test,
+            follow_links=args.follow_links,
             commit_interval=args.commit_interval,
-            chunk_size=args.chunk_size)
+            chunk_size=args.chunk_size,
+        )
 
 
 if __name__ == '__main__':
