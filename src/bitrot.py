@@ -80,11 +80,11 @@ def get_sqlite3_cursor(path, copy=False):
     conn = sqlite3.connect(path)
     atexit.register(conn.close)
     cur = conn.cursor()
-    names = set(name for name, in cur.execute('SELECT name FROM sqlite_master'))
-    if 'bitrot' not in names:
+    tables = set(t for t, in cur.execute('SELECT name FROM sqlite_master'))
+    if 'bitrot' not in tables:
         cur.execute('CREATE TABLE bitrot (path TEXT PRIMARY KEY, '
                     'mtime INTEGER, hash TEXT, timestamp TEXT)')
-    if 'bitrot_hash_idx' not in names:
+    if 'bitrot_hash_idx' not in tables:
         cur.execute('CREATE INDEX bitrot_hash_idx ON bitrot (hash)')
     atexit.register(conn.commit)
     return conn
@@ -176,8 +176,10 @@ def run(verbosity=1, test=False, follow_links=False, commit_interval=300,
                     break
             else:
                 new_paths.append(p)
-                cur.execute('INSERT INTO bitrot VALUES (?, ?, ?, ?)',
-                    (p_uni, new_mtime, new_sha1, update_ts))
+                cur.execute(
+                    'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
+                    (p_uni, new_mtime, new_sha1, update_ts),
+                )
                 last_commit_time = tcommit(last_commit_time)
             continue
         stored_mtime, stored_sha1, update_ts = row
@@ -189,11 +191,12 @@ def run(verbosity=1, test=False, follow_links=False, commit_interval=300,
             last_commit_time = tcommit(last_commit_time)
         elif stored_sha1 != new_sha1:
             error_count += 1
-            print('\rerror: SHA1 mismatch for {}: expected {}, got {}.'
-                  ' Original info from {}.'.format(
-                        p, stored_sha1, new_sha1, update_ts
-                  ),
-                  file=sys.stderr,
+            print(
+                '\rerror: SHA1 mismatch for {}: expected {}, got {}.'
+                ' Original info from {}.'.format(
+                    p, stored_sha1, new_sha1, update_ts
+                ),
+                file=sys.stderr,
             )
     for path in missing_paths:
         cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
@@ -205,10 +208,13 @@ def run(verbosity=1, test=False, follow_links=False, commit_interval=300,
         print('\rFinished. {:.2f} MiB of data read. {} errors found.'
               ''.format(total_size/1024/1024, error_count))
         if verbosity == 1:
-            print('{} entries in the database, {} new, {} updated, '
-                  '{} renamed, {} missing.'.format(all_count, len(new_paths),
-                      len(updated_paths), len(renamed_paths), len(missing_paths)
-            ))
+            print(
+                '{} entries in the database, {} new, {} updated, '
+                '{} renamed, {} missing.'.format(
+                    all_count, len(new_paths), len(updated_paths),
+                    len(renamed_paths), len(missing_paths),
+                ),
+            )
         elif verbosity > 1:
             print('{} entries in the database.'.format(all_count), end=' ')
             if new_paths:
@@ -255,29 +261,37 @@ def stable_sum():
 
 def run_from_command_line():
     parser = argparse.ArgumentParser(prog='bitrot')
-    parser.add_argument('-l', '--follow-links', action='store_true',
+    parser.add_argument(
+        '-l', '--follow-links', action='store_true',
         help='follow symbolic links and store target files\' hashes. Once '
              'a path is present in the database, it will be checked against '
              'changes in content even if it becomes a symbolic link. In '
              'other words, if you run `bitrot -l`, on subsequent runs '
              'symbolic links registered during the first run will be '
              'properly followed and checked even if you run without `-l`.')
-    parser.add_argument('-q', '--quiet', action='store_true',
+    parser.add_argument(
+        '-q', '--quiet', action='store_true',
         help='don\'t print anything besides checksum errors')
-    parser.add_argument('-s', '--sum', action='store_true',
+    parser.add_argument(
+        '-s', '--sum', action='store_true',
         help='using only the data already gathered, return a SHA-512 sum '
              'of hashes of all the entries in the database. No timestamps '
              'are used in calculation.')
-    parser.add_argument('-v', '--verbose', action='store_true',
+    parser.add_argument(
+        '-v', '--verbose', action='store_true',
         help='list new, updated and missing entries')
-    parser.add_argument('-t', '--test', action='store_true',
+    parser.add_argument(
+        '-t', '--test', action='store_true',
         help='just test against an existing database, don\'t update anything')
-    parser.add_argument('--version', action='version',
+    parser.add_argument(
+        '--version', action='version',
         version='%(prog)s {}.{}.{}'.format(*VERSION))
-    parser.add_argument('--commit-interval', type=float, default=300,
+    parser.add_argument(
+        '--commit-interval', type=float, default=300,
         help='min time in seconds between commits '
              '(0 commits on every operation)')
-    parser.add_argument('--chunk-size', type=int, default=DEFAULT_CHUNK_SIZE,
+    parser.add_argument(
+        '--chunk-size', type=int, default=DEFAULT_CHUNK_SIZE,
         help='read files this many bytes at a time')
     args = parser.parse_args()
     if args.sum:
@@ -291,7 +305,8 @@ def run_from_command_line():
             verbosity = 0
         elif args.verbose:
             verbosity = 2
-        run(verbosity=verbosity,
+        run(
+            verbosity=verbosity,
             test=args.test,
             follow_links=args.follow_links,
             commit_interval=args.commit_interval,
