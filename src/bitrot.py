@@ -169,8 +169,14 @@ def run(verbosity=1, test=False, follow_links=False, commit_interval=300,
                     renamed_paths.append((stored_path, p_uni))
                     missing_paths.discard(stored_path)
                     cur.execute('UPDATE bitrot SET mtime=?, path=?, '
-                                'timestamp=? WHERE hash=?',
-                                (new_mtime, p_uni, update_ts, new_sha1))
+                                'timestamp=?, hash=? WHERE path=?',
+                                (
+                                    new_mtime,
+                                    p_uni,
+                                    update_ts,
+                                    new_sha1,
+                                    stored_path
+                                ))
 
                     last_commit_time = tcommit(last_commit_time)
                     break
