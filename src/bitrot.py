@@ -94,7 +94,11 @@ def run(verbosity=1, test=False, follow_links=False, commit_interval=300,
         chunk_size=DEFAULT_CHUNK_SIZE):
     current_dir = b'.'   # sic, relative path
     bitrot_db = os.path.join(current_dir, b'.bitrot.db')
-    conn = get_sqlite3_cursor(bitrot_db, copy=test)
+    try:
+        conn = get_sqlite3_cursor(bitrot_db, copy=test)
+    except ValueError:
+        print('No database exists so cannot test. Run the tool once first.')
+        sys.exit(2)
     cur = conn.cursor()
     new_paths = []
     updated_paths = []
