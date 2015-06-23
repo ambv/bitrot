@@ -36,6 +36,23 @@ a 100 GB Aperture library in under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
+0.7.0
+~~~~~
+
+* when a file changes or is renamed, the timestamp of the last check is
+  updated, too
+
+* bugfix: files that disappeared during the run are now properly ignored
+
+* bugfix: files that are locked or with otherwise denied access are
+  skipped. If they were read before, they will be considered "missing"
+  in the report.
+
+* bugfix: if there are multiple files with the same content in the
+  scanned directory tree, renames are now handled properly for them
+
+* refactored some horrible code to be a little less horrible
+
 0.6.0
 ~~~~~
 
@@ -103,4 +120,5 @@ Authors
 -------
 
 Glued together by `Łukasz Langa <mailto:lukasz@langa.pl>`_. Multiple
-improvements by `Yang Zhang <mailto:yaaang@gmail.com>`_.
+improvements by `Yang Zhang <mailto:yaaang@gmail.com>`_ and `Jean-Louis
+Fuchs <mailto:ganwell@fangorn.ch>`.

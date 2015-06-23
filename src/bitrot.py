@@ -30,7 +30,6 @@ import argparse
 import atexit
 import datetime
 import errno
-import functools
 import hashlib
 import os
 import shutil
@@ -43,7 +42,8 @@ import time
 
 DEFAULT_CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
-VERSION = (0, 6, 0)
+VERSION = (0, 7, 0)
+IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 
 
 def sha1(path, chunk_size):
@@ -56,11 +56,8 @@ def sha1(path, chunk_size):
     return digest.hexdigest()
 
 
-def throttled_commit(conn, commit_interval, last_commit_time):
-    if time.time() - last_commit_time > commit_interval:
-        conn.commit()
-        last_commit_time = time.time()
-    return last_commit_time
+def ts():
+    return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S%z')
 
 
 def get_sqlite3_cursor(path, copy=False):
@@ -90,134 +87,208 @@ def get_sqlite3_cursor(path, copy=False):
     return conn
 
 
-def run(verbosity=1, test=False, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE):
-    current_dir = b'.'   # sic, relative path
-    bitrot_db = os.path.join(current_dir, b'.bitrot.db')
-    try:
-        conn = get_sqlite3_cursor(bitrot_db, copy=test)
-    except ValueError:
-        print('No database exists so cannot test. Run the tool once first.')
-        sys.exit(2)
-    cur = conn.cursor()
-    new_paths = []
-    updated_paths = []
-    renamed_paths = []
-    error_count = 0
-    total_size = 0
-    current_size = 0
-    last_reported_size = ''
-    missing_paths = set()
-    cur.execute('SELECT path FROM bitrot')
-    row = cur.fetchone()
-    while row:
-        missing_paths.add(row[0])
-        row = cur.fetchone()
+def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
+    """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
+
+    Returns a tuple with a list with existing files in `directory` and their
+    `total_size`.
+
+    Doesn't add entries listed in `ignored`.  Doesn't add symlinks if
+    `follow_links` is False (the default).  All entries present in `expected`
+    must be files (can't be directories or symlinks).
+    """
     paths = []
-    for path, _, files in os.walk(current_dir):
+    total_size = 0
+    for path, _, files in os.walk(directory):
         for f in files:
             p = os.path.join(path, f)
             p_uni = p.decode('utf8')
             try:
-                if follow_links or p_uni in missing_paths:
+                if follow_links or p_uni in expected:
                     st = os.stat(p)
                 else:
                     st = os.lstat(p)
             except OSError as ex:
-                if ex.errno != errno.ENOENT:
+                if ex.errno not in IGNORED_FILE_SYSTEM_ERRORS:
                     raise
             else:
-                if not stat.S_ISREG(st.st_mode) or p == bitrot_db:
+                if not stat.S_ISREG(st.st_mode) or p in ignored:
                     continue
                 paths.append(p)
                 total_size += st.st_size
     paths.sort()
-    last_commit_time = 0
-    tcommit = functools.partial(throttled_commit, conn, commit_interval)
-    for p in paths:
-        st = os.stat(p)
-        new_mtime = int(st.st_mtime)
-        current_size += st.st_size
-        if verbosity:
-            size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
-            if size_fmt != last_reported_size:
-                sys.stdout.write(size_fmt)
-                sys.stdout.flush()
-                last_reported_size = size_fmt
-        p_uni = p.decode('utf8')
-        missing_paths.discard(p_uni)
+    return paths, total_size
+
+
+class BitrotException(Exception):
+    pass
+
+
+class Bitrot(object):
+    def __init__(
+        self, verbosity=1, test=False, follow_links=False, commit_interval=300,
+        chunk_size=DEFAULT_CHUNK_SIZE,
+    ):
+        self.verbosity = verbosity
+        self.test = test
+        self.follow_links = follow_links
+        self.commit_interval = commit_interval
+        self.chunk_size = chunk_size
+        self._last_reported_size = ''
+        self._last_commit_ts = 0
+
+    def maybe_commit(self, conn):
+        if time.time() < self._last_commit_ts + self.commit_interval:
+            # no time for commit yet!
+            return
+
+        conn.commit()
+        self._last_commit_ts = time.time()
+
+    def run(self):
+        current_dir = b'.'   # sic, relative path
+        bitrot_db = os.path.join(current_dir, b'.bitrot.db')
         try:
-            new_sha1 = sha1(p, chunk_size)
-        except (IOError, OSError) as e:
-            if verbosity:
+            conn = get_sqlite3_cursor(bitrot_db, copy=self.test)
+        except ValueError:
+            raise BitrotException(
+                2,
+                'No database exists so cannot test. Run the tool once first.',
+            )
+
+        cur = conn.cursor()
+        new_paths = []
+        updated_paths = []
+        renamed_paths = []
+        error_count = 0
+        current_size = 0
+        missing_paths = self.select_all_paths(cur)
+        paths, total_size = list_existing_paths(
+            current_dir, expected=missing_paths, ignored={bitrot_db},
+            follow_links=self.follow_links,
+        )
+
+        for p in paths:
+            p_uni = p.decode('utf8')
+            try:
+                st = os.stat(p)
+            except OSError as ex:
+                if ex.errno in IGNORED_FILE_SYSTEM_ERRORS:
+                    # The file disappeared between listing existing paths and
+                    # this run or is (temporarily?) locked with different
+                    # permissions. We'll just skip it for now.
+                    if self.verbosity:
+                        print(
+                            '\rwarning: `{}` is currently unavailable for '
+                            'reading: {}'.format(
+                                p_uni, ex,
+                            ),
+                            file=sys.stderr,
+                        )
+                    continue
+
+                raise   # Not expected? https://github.com/ambv/bitrot/issues/
+
+            new_mtime = int(st.st_mtime)
+            current_size += st.st_size
+            if self.verbosity:
+                self.report_progress(current_size, total_size)
+
+            missing_paths.discard(p_uni)
+            try:
+                new_sha1 = sha1(p, self.chunk_size)
+            except (IOError, OSError) as e:
+                if self.verbosity:
+                    print(
+                        '\rwarning: cannot compute hash of {} [{}]'.format(
+                            p, errno.errorcode[e.args[0]],
+                        ),
+                        file=sys.stderr,
+                    )
+                continue
+
+            cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
+                        'path=?', (p_uni,))
+            row = cur.fetchone()
+            if not row:
+                stored_path = self.handle_unknown_path(
+                    cur, p_uni, new_mtime, new_sha1,
+                )
+                self.maybe_commit(conn)
+
+                if p_uni == stored_path:
+                    new_paths.append(p)   # FIXME: shouldn't that be p_uni?
+                else:
+                    renamed_paths.append((stored_path, p_uni))
+                    missing_paths.discard(stored_path)
+                continue
+
+            stored_mtime, stored_sha1, stored_ts = row
+            if int(stored_mtime) != new_mtime:
+                updated_paths.append(p)
+                cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
+                            'WHERE path=?',
+                            (new_mtime, new_sha1, ts(), p_uni))
+                self.maybe_commit(conn)
+                continue
+
+            if stored_sha1 != new_sha1:
+                error_count += 1
                 print(
-                    '\rwarning: cannot compute hash of {} [{}]'.format(
-                        p, errno.errorcode[e.args[0]],
+                    '\rerror: SHA1 mismatch for {}: expected {}, got {}.'
+                    ' Last good hash checked on {}.'.format(
+                        p, stored_sha1, new_sha1, stored_ts
                     ),
                     file=sys.stderr,
                 )
-            continue
-        update_ts = datetime.datetime.utcnow().strftime(
-            '%Y-%m-%d %H:%M:%S%z'
-        )
-        cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
-                    'path=?', (p_uni,))
-        row = cur.fetchone()
-        if not row:
-            cur.execute('SELECT mtime, path, timestamp FROM bitrot WHERE '
-                        'hash=?', (new_sha1,))
-            rows = cur.fetchall()
-            for row in rows:
-                stored_mtime, stored_path, update_ts = row
-                if not os.path.exists(stored_path):
-                    renamed_paths.append((stored_path, p_uni))
-                    missing_paths.discard(stored_path)
-                    cur.execute('UPDATE bitrot SET mtime=?, path=?, '
-                                'timestamp=?, hash=? WHERE path=?',
-                                (
-                                    new_mtime,
-                                    p_uni,
-                                    update_ts,
-                                    new_sha1,
-                                    stored_path
-                                ))
 
-                    last_commit_time = tcommit(last_commit_time)
-                    break
-            else:
-                new_paths.append(p)
-                cur.execute(
-                    'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
-                    (p_uni, new_mtime, new_sha1, update_ts),
-                )
-                last_commit_time = tcommit(last_commit_time)
-            continue
-        stored_mtime, stored_sha1, update_ts = row
-        if int(stored_mtime) != new_mtime:
-            updated_paths.append(p)
-            cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
-                        'WHERE path=?',
-                        (new_mtime, new_sha1, update_ts, p_uni))
-            last_commit_time = tcommit(last_commit_time)
-        elif stored_sha1 != new_sha1:
-            error_count += 1
-            print(
-                '\rerror: SHA1 mismatch for {}: expected {}, got {}.'
-                ' Original info from {}.'.format(
-                    p, stored_sha1, new_sha1, update_ts
-                ),
-                file=sys.stderr,
+        for path in missing_paths:
+            cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
+
+        conn.commit()
+
+        if self.verbosity:
+            cur.execute('SELECT COUNT(path) FROM bitrot')
+            all_count = cur.fetchone()[0]
+            self.report_done(
+                total_size,
+                all_count,
+                error_count,
+                new_paths,
+                updated_paths,
+                renamed_paths,
+                missing_paths,
             )
-    for path in missing_paths:
-        cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
-        last_commit_time = tcommit(last_commit_time)
-    conn.commit()
-    cur.execute('SELECT COUNT(path) FROM bitrot')
-    all_count = cur.fetchone()[0]
-    if verbosity:
+
+        if error_count:
+            raise BitrotException(
+                1, 'There were {} errors found.'.format(error_count),
+            )
+
+    def select_all_paths(self, cur):
+        result = set()
+        cur.execute('SELECT path FROM bitrot')
+        row = cur.fetchone()
+        while row:
+            result.add(row[0])
+            row = cur.fetchone()
+        return result
+
+    def report_progress(self, current_size, total_size):
+        size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
+        if size_fmt == self._last_reported_size:
+            return
+
+        sys.stdout.write(size_fmt)
+        sys.stdout.flush()
+        self._last_reported_size = size_fmt
+
+    def report_done(
+        self, total_size, all_count, error_count, new_paths, updated_paths,
+        renamed_paths, missing_paths):
         print('\rFinished. {:.2f} MiB of data read. {} errors found.'
-              ''.format(total_size/1024/1024, error_count))
-        if verbosity == 1:
+            ''.format(total_size/1024/1024, error_count))
+        if self.verbosity == 1:
             print(
                 '{} entries in the database, {} new, {} updated, '
                 '{} renamed, {} missing.'.format(
@@ -225,7 +296,7 @@ def run(verbosity=1, test=False, follow_links=False, commit_interval=300,
                     len(renamed_paths), len(missing_paths),
                 ),
             )
-        elif verbosity > 1:
+        elif self.verbosity > 1:
             print('{} entries in the database.'.format(all_count), end=' ')
             if new_paths:
                 print('{} entries new:'.format(len(new_paths)))
@@ -249,10 +320,39 @@ def run(verbosity=1, test=False, follow_links=False, commit_interval=300,
                     print(' ', path)
             if not any((new_paths, updated_paths, missing_paths)):
                 print()
-        if test:
+        if self.test:
             print('warning: database file not updated on disk (test mode).')
-    if error_count:
-        sys.exit(1)
+
+    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1):
+        """Either add a new entry to the database or update the existing entry
+        on rename.
+
+        Returns `new_path` if the entry was indeed new or the `stored_path` (e.g.
+        outdated path) if there was a rename.
+        """
+        cur.execute('SELECT mtime, path, timestamp FROM bitrot WHERE hash=?',
+                    (new_sha1,))
+        rows = cur.fetchall()
+        for row in rows:
+            stored_mtime, stored_path, stored_ts = row
+            if os.path.exists(stored_path):
+                # file still exists, move on
+                continue
+
+            # update the path in the database
+            cur.execute(
+                'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
+                (new_mtime, new_path, ts(), stored_path),
+            )
+
+            return stored_path
+
+        # no rename, just a new file with the same hash
+        cur.execute(
+            'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
+            (new_path, new_mtime, new_sha1, ts()),
+        )
+        return new_path
 
 
 def stable_sum():
@@ -315,13 +415,18 @@ def run_from_command_line():
             verbosity = 0
         elif args.verbose:
             verbosity = 2
-        run(
+        bt = Bitrot(
             verbosity=verbosity,
             test=args.test,
             follow_links=args.follow_links,
             commit_interval=args.commit_interval,
             chunk_size=args.chunk_size,
         )
+        try:
+            bt.run()
+        except BitrotException as bre:
+            print('error:', bre.args[1], file=sys.stderr)
+            sys.exit(bre.args[0])
 
 
 if __name__ == '__main__':
