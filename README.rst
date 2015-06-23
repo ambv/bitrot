@@ -121,4 +121,4 @@ Authors
 
 Glued together by `Łukasz Langa <mailto:lukasz@langa.pl>`_. Multiple
 improvements by `Yang Zhang <mailto:yaaang@gmail.com>`_ and `Jean-Louis
-Fuchs <mailto:ganwell@fangorn.ch>`.
+Fuchs <mailto:ganwell@fangorn.ch>`_.
