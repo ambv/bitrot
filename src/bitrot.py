@@ -102,7 +102,12 @@ def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
     for path, _, files in os.walk(directory):
         for f in files:
             p = os.path.join(path, f)
-            p_uni = p.decode('utf8')
+            try:
+                p_uni = p.decode('utf8')
+            except UnicodeDecodeError as ex:
+                print("Unicode decode error for file, skipping:", file=sys.stderr, )
+                print(p, file=sys.stderr, )
+                continue
             try:
                 if follow_links or p_uni in expected:
                     st = os.stat(p)
