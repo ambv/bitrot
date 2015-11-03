@@ -36,6 +36,13 @@ a 100 GB Aperture library in under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
+0.7.1
+~~~~~
+
+* bugfix: SHA1 computation now works correctly on Windows; previously
+  opened files in text-mode. This fix will change hashes of files
+  containing some specific bytes like 0x1A.
+
 0.7.0
 ~~~~~
 
