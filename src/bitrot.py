@@ -48,7 +48,7 @@ IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 
 def sha1(path, chunk_size):
     digest = hashlib.sha1()
-    with open(path) as f:
+    with open(path, 'rb') as f:
         d = f.read(chunk_size)
         while d:
             digest.update(d)
