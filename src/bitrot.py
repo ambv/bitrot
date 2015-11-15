@@ -86,6 +86,25 @@ def get_sqlite3_cursor(path, copy=False):
     atexit.register(conn.commit)
     return conn
 
+def sqlite3_export(path):
+    conn = sqlite3.connect(path)
+    atexit.register(conn.close)
+    cur = conn.cursor()
+    tables = set(t for t, in cur.execute('SELECT name FROM sqlite_master'))
+    if 'bitrot' not in tables:
+        cur.execute('CREATE TABLE bitrot (path TEXT PRIMARY KEY, '
+                    'mtime INTEGER, hash TEXT, timestamp TEXT)')
+    if 'bitrot_hash_idx' not in tables:
+        cur.execute('CREATE INDEX bitrot_hash_idx ON bitrot (hash)')
+    atexit.register(conn.commit)
+
+    data = cur.execute("SELECT path, hash FROM bitrot")
+    with open('.bitrot.db.txt', 'wb') as f:
+        for d in data:
+            z = d[1].encode('utf8') + b'  ' + d[0].encode('utf8') + b'\n'
+            f.write(z)     
+    return conn
+
 
 def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
     """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
@@ -391,6 +410,9 @@ def run_from_command_line():
         '-v', '--verbose', action='store_true',
         help='list new, updated and missing entries')
     parser.add_argument(
+        '-x', '--export', action='store_true',
+        help='export an sha1sum compatible version of the database')
+    parser.add_argument(
         '-t', '--test', action='store_true',
         help='just test against an existing database, don\'t update anything')
     parser.add_argument(
@@ -404,29 +426,41 @@ def run_from_command_line():
         '--chunk-size', type=int, default=DEFAULT_CHUNK_SIZE,
         help='read files this many bytes at a time')
     args = parser.parse_args()
+
+    if args.export:
+        try:
+            current_dir = b'.'   # sic, relative path
+            bitrot_db = os.path.join(current_dir, b'.bitrot.db')
+            sqlite3_export(bitrot_db)
+            sys.exit(0)
+        except RuntimeError as e:
+            print(unicode(e).encode('utf8'), file=sys.stderr)
+
     if args.sum:
         try:
             print(stable_sum())
+            exit(0)
         except RuntimeError as e:
             print(unicode(e).encode('utf8'), file=sys.stderr)
-    else:
-        verbosity = 1
-        if args.quiet:
-            verbosity = 0
-        elif args.verbose:
-            verbosity = 2
-        bt = Bitrot(
-            verbosity=verbosity,
-            test=args.test,
-            follow_links=args.follow_links,
-            commit_interval=args.commit_interval,
-            chunk_size=args.chunk_size,
-        )
-        try:
-            bt.run()
-        except BitrotException as bre:
-            print('error:', bre.args[1], file=sys.stderr)
-            sys.exit(bre.args[0])
+
+        
+    verbosity = 1
+    if args.quiet:
+        verbosity = 0
+    elif args.verbose:
+        verbosity = 2
+    bt = Bitrot(
+        verbosity=verbosity,
+        test=args.test,
+        follow_links=args.follow_links,
+        commit_interval=args.commit_interval,
+        chunk_size=args.chunk_size,
+    )
+    try:
+        bt.run()
+    except BitrotException as bre:
+        print('error:', bre.args[1], file=sys.stderr)
+        sys.exit(bre.args[0])
 
 
 if __name__ == '__main__':
