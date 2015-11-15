@@ -99,7 +99,11 @@ def sqlite3_export(path):
     atexit.register(conn.commit)
 
     data = cur.execute("SELECT path, hash FROM bitrot")
+<<<<<<< HEAD
     with open('.bitrot.db.txt', 'wb') as f:
+=======
+    with open('_bitrot.db.txt', 'wb') as f:
+>>>>>>> origin/master
         for d in data:
             z = d[1].encode('utf8') + b'  ' + d[0].encode('utf8') + b'\n'
             f.write(z)     
@@ -430,7 +434,11 @@ def run_from_command_line():
     if args.export:
         try:
             current_dir = b'.'   # sic, relative path
+<<<<<<< HEAD
             bitrot_db = os.path.join(current_dir, b'.bitrot.db')
+=======
+            bitrot_db = os.path.join(current_dir, b'_bitrot.db')
+>>>>>>> origin/master
             sqlite3_export(bitrot_db)
             sys.exit(0)
         except RuntimeError as e:
