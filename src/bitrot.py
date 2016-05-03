@@ -44,6 +44,7 @@ DEFAULT_CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
 VERSION = (0, 7, 1)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
+FSENCODING = sys.getfilesystemencoding()
 
 
 def sha1(path, chunk_size):
@@ -102,7 +103,22 @@ def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
     for path, _, files in os.walk(directory):
         for f in files:
             p = os.path.join(path, f)
-            p_uni = p.decode('utf8')
+            try:
+                p_uni = p.decode(FSENCODING)
+            except UnicodeDecodeError:
+                try:
+                    print(
+                        "warning: cannot decode file name:",
+                        path,
+                        file=sys.stderr,
+                    )
+                except UnicodeDecodeError:
+                    # yup, even printing the filename might fail in certain
+                    # occasions
+                    pass
+
+                continue
+
             try:
                 if follow_links or p_uni in expected:
                     st = os.stat(p)
@@ -146,8 +162,10 @@ class Bitrot(object):
         self._last_commit_ts = time.time()
 
     def run(self):
-        current_dir = b'.'   # sic, relative path
-        bitrot_db = os.path.join(current_dir, b'.bitrot.db')
+        check_sha512_integrity()
+
+        bitrot_db = get_path()
+        bitrot_sha512 = get_path(ext=b'sha512')
         try:
             conn = get_sqlite3_cursor(bitrot_db, copy=self.test)
         except ValueError:
@@ -164,7 +182,7 @@ class Bitrot(object):
         current_size = 0
         missing_paths = self.select_all_paths(cur)
         paths, total_size = list_existing_paths(
-            current_dir, expected=missing_paths, ignored={bitrot_db},
+            b'.', expected=missing_paths, ignored={bitrot_db, bitrot_sha512},
             follow_links=self.follow_links,
         )
 
@@ -259,6 +277,8 @@ class Bitrot(object):
                 renamed_paths,
                 missing_paths,
             )
+
+        update_sha512_integrity()
 
         if error_count:
             raise BitrotException(
@@ -355,9 +375,16 @@ class Bitrot(object):
         return new_path
 
 
-def stable_sum():
-    current_dir = b'.'   # sic, relative path
-    bitrot_db = os.path.join(current_dir, b'.bitrot.db')
+def get_path(directory=b'.', ext=b'db'):
+    """Compose the path to the selected bitrot file."""
+    return os.path.join(directory, b'.bitrot.' + ext)
+
+
+def stable_sum(bitrot_db):
+    """Calculates a stable SHA512 of all entries in the database.
+
+    Useful for comparing if two directories hold the same data, as it ignores
+    timing information."""
     digest = hashlib.sha512()
     conn = get_sqlite3_cursor(bitrot_db)
     cur = conn.cursor()
@@ -369,7 +396,60 @@ def stable_sum():
     return digest.hexdigest()
 
 
+def check_sha512_integrity():
+    sha512_path = get_path(ext='sha512')
+    if not os.path.exists(sha512_path):
+        return
+
+    print('Checking bitrot.db integrity... ', end='')
+    with open(sha512_path, 'rb') as f:
+        old_sha512 = f.read().strip()
+    bitrot_db = get_path()
+    digest = hashlib.sha512()
+    with open(bitrot_db, 'rb') as f:
+        digest.update(f.read())
+    new_sha512 = digest.hexdigest()
+    if new_sha512 != old_sha512:
+        if len(old_sha512) == 128:
+            print(
+                "error: SHA512 of the file is different, bitrot.db might be "
+                "corrupt."
+            )
+        else:
+            print(
+                "error: SHA512 of the file is different but bitrot.sha512 has "
+                "a suspicious length. It might be corrupt."
+            )
+        print(
+            "If you'd like to continue anyway, delete the .bitrot.sha512 "
+            "file and try again."
+        )
+        raise BitrotException(
+            3, 'bitrot.db integrity check failed, cannot continue.',
+        )
+
+    print('ok.')
+
+def update_sha512_integrity():
+    old_sha512 = 0
+    sha512_path = get_path(ext='sha512')
+    if os.path.exists(sha512_path):
+        with open(sha512_path, 'rb') as f:
+            old_sha512 = f.read().strip()
+    bitrot_db = get_path()
+    digest = hashlib.sha512()
+    with open(bitrot_db, 'rb') as f:
+        digest.update(f.read())
+    new_sha512 = digest.hexdigest()
+    if new_sha512 != old_sha512:
+        print('Updating bitrot.sha512... ', end='')
+        with open(sha512_path, 'wb') as f:
+            f.write(new_sha512)
+        print('done.')
+
 def run_from_command_line():
+    global FSENCODING
+
     parser = argparse.ArgumentParser(prog='bitrot')
     parser.add_argument(
         '-l', '--follow-links', action='store_true',
@@ -403,6 +483,10 @@ def run_from_command_line():
     parser.add_argument(
         '--chunk-size', type=int, default=DEFAULT_CHUNK_SIZE,
         help='read files this many bytes at a time')
+    parser.add_argument(
+        '--fsencoding', default='',
+        help='override the codec to decode filenames, otherwise taken from '
+             'the LANG environment variables')
     args = parser.parse_args()
     if args.sum:
         try:
@@ -422,6 +506,8 @@ def run_from_command_line():
             commit_interval=args.commit_interval,
             chunk_size=args.chunk_size,
         )
+        if args.fsencoding:
+            FSENCODING = args.fsencoding
         try:
             bt.run()
         except BitrotException as bre:
