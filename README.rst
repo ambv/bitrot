@@ -36,6 +36,16 @@ a 100 GB Aperture library in under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
+0.8.0
+~~~~~
+
+* bitrot now keeps track of its own database's bitrot by storing
+  a checksum of .bitrot.db in .bitrot.sha512
+
+* bugfix: now properly uses the filesystem encoding to decode file names
+  for use with the .bitrotdb database. Report and original patch by
+  pallinger.
+
 0.7.1
 ~~~~~
 
