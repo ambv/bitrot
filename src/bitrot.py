@@ -280,7 +280,7 @@ class Bitrot(object):
 
         update_sha512_integrity()
 
-        if len(errors) > 0:
+        if errors:
             raise BitrotException(
                 1, 'There were {} errors found.'.format(len(errors)), errors,
             )
