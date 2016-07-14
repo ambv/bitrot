@@ -137,5 +137,5 @@ Authors
 -------
 
 Glued together by `Łukasz Langa <mailto:lukasz@langa.pl>`_. Multiple
-improvements by `Yang Zhang <mailto:yaaang@gmail.com>`_ and `Jean-Louis
-Fuchs <mailto:ganwell@fangorn.ch>`_.
+improvements by `Yang Zhang <mailto:yaaang@gmail.com>`_, `Jean-Louis
+Fuchs <mailto:ganwell@fangorn.ch>`_ and `Phil Lundrigan <mailto:philipbl@cs.utah.edu>`_.

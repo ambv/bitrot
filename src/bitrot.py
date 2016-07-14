@@ -178,7 +178,7 @@ class Bitrot(object):
         new_paths = []
         updated_paths = []
         renamed_paths = []
-        error_count = 0
+        errors = []
         current_size = 0
         missing_paths = self.select_all_paths(cur)
         paths, total_size = list_existing_paths(
@@ -251,7 +251,7 @@ class Bitrot(object):
                 continue
 
             if stored_sha1 != new_sha1:
-                error_count += 1
+                errors.append(p)
                 print(
                     '\rerror: SHA1 mismatch for {}: expected {}, got {}.'
                     ' Last good hash checked on {}.'.format(
@@ -271,7 +271,7 @@ class Bitrot(object):
             self.report_done(
                 total_size,
                 all_count,
-                error_count,
+                len(errors),
                 new_paths,
                 updated_paths,
                 renamed_paths,
@@ -280,9 +280,9 @@ class Bitrot(object):
 
         update_sha512_integrity()
 
-        if error_count:
+        if errors:
             raise BitrotException(
-                1, 'There were {} errors found.'.format(error_count),
+                1, 'There were {} errors found.'.format(len(errors)), errors,
             )
 
     def select_all_paths(self, cur):
