@@ -36,6 +36,13 @@ a 100 GB Aperture library in under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
+0.9.0
+~~~~~
+
+* bugfix: bitrot.db checksum checking messages now obey --quiet
+
+* Python 3 compatibility
+
 0.8.0
 ~~~~~
 

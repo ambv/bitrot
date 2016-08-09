@@ -42,9 +42,14 @@ import time
 
 DEFAULT_CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
-VERSION = (0, 8, 0)
+VERSION = (0, 9, 0)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
+
+
+if sys.version[0] == '2':
+    str = type(u'text')
+    # use `bytes` for bytestrings
 
 
 def sha1(path, chunk_size):
@@ -62,6 +67,7 @@ def ts():
 
 
 def get_sqlite3_cursor(path, copy=False):
+    path = path.decode(FSENCODING)
     if copy:
         if not os.path.exists(path):
             raise ValueError("error: bitrot database at {} does not exist."
@@ -162,7 +168,7 @@ class Bitrot(object):
         self._last_commit_ts = time.time()
 
     def run(self):
-        check_sha512_integrity()
+        check_sha512_integrity(verbosity=self.verbosity)
 
         bitrot_db = get_path()
         bitrot_sha512 = get_path(ext=b'sha512')
@@ -278,7 +284,7 @@ class Bitrot(object):
                 missing_paths,
             )
 
-        update_sha512_integrity()
+        update_sha512_integrity(verbosity=self.verbosity)
 
         if errors:
             raise BitrotException(
@@ -340,7 +346,7 @@ class Bitrot(object):
                     print(' ', path)
             if not any((new_paths, updated_paths, missing_paths)):
                 print()
-        if self.test:
+        if self.test and self.verbosity:
             print('warning: database file not updated on disk (test mode).')
 
     def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1):
@@ -396,43 +402,48 @@ def stable_sum(bitrot_db):
     return digest.hexdigest()
 
 
-def check_sha512_integrity():
-    sha512_path = get_path(ext='sha512')
+def check_sha512_integrity(verbosity=1):
+    sha512_path = get_path(ext=b'sha512')
     if not os.path.exists(sha512_path):
         return
 
-    print('Checking bitrot.db integrity... ', end='')
+    if verbosity:
+        print('Checking bitrot.db integrity... ', end='')
+        sys.stdout.flush()
     with open(sha512_path, 'rb') as f:
         old_sha512 = f.read().strip()
     bitrot_db = get_path()
     digest = hashlib.sha512()
     with open(bitrot_db, 'rb') as f:
         digest.update(f.read())
-    new_sha512 = digest.hexdigest()
+    new_sha512 = digest.hexdigest().encode('ascii')
     if new_sha512 != old_sha512:
-        if len(old_sha512) == 128:
+        if verbosity:
+            if len(old_sha512) == 128:
+                print(
+                    "error: SHA512 of the file is different, bitrot.db might "
+                    "be corrupt.",
+                )
+            else:
+                print(
+                    "error: SHA512 of the file is different but bitrot.sha512 "
+                    "has a suspicious length. It might be corrupt.",
+                )
             print(
-                "error: SHA512 of the file is different, bitrot.db might be "
-                "corrupt."
+                "If you'd like to continue anyway, delete the .bitrot.sha512 "
+                "file and try again.",
+                file=sys.stderr,
             )
-        else:
-            print(
-                "error: SHA512 of the file is different but bitrot.sha512 has "
-                "a suspicious length. It might be corrupt."
-            )
-        print(
-            "If you'd like to continue anyway, delete the .bitrot.sha512 "
-            "file and try again."
-        )
         raise BitrotException(
             3, 'bitrot.db integrity check failed, cannot continue.',
         )
 
-    print('ok.')
+    if verbosity:
+        print('ok.')
 
-def update_sha512_integrity():
+def update_sha512_integrity(verbosity=1):
     old_sha512 = 0
-    sha512_path = get_path(ext='sha512')
+    sha512_path = get_path(ext=b'sha512')
     if os.path.exists(sha512_path):
         with open(sha512_path, 'rb') as f:
             old_sha512 = f.read().strip()
@@ -440,12 +451,15 @@ def update_sha512_integrity():
     digest = hashlib.sha512()
     with open(bitrot_db, 'rb') as f:
         digest.update(f.read())
-    new_sha512 = digest.hexdigest()
+    new_sha512 = digest.hexdigest().encode('ascii')
     if new_sha512 != old_sha512:
-        print('Updating bitrot.sha512... ', end='')
+        if verbosity:
+            print('Updating bitrot.sha512... ', end='')
+            sys.stdout.flush()
         with open(sha512_path, 'wb') as f:
             f.write(new_sha512)
-        print('done.')
+        if verbosity:
+            print('done.')
 
 def run_from_command_line():
     global FSENCODING
@@ -492,7 +506,7 @@ def run_from_command_line():
         try:
             print(stable_sum())
         except RuntimeError as e:
-            print(unicode(e).encode('utf8'), file=sys.stderr)
+            print(str(e).encode('utf8'), file=sys.stderr)
     else:
         verbosity = 1
         if args.quiet:

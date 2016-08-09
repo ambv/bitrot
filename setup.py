@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (C) 2013 by Łukasz Langa
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
@@ -21,15 +21,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import codecs
 import os
 import sys
 from setuptools import setup, find_packages
 
-reload(sys)
-sys.setdefaultencoding('utf8')
-
 current_dir = os.path.abspath(os.path.dirname(__file__))
-ld_file = open(os.path.join(current_dir, 'README.rst'))
+ld_file = codecs.open(os.path.join(current_dir, 'README.rst'), encoding='utf8')
 try:
     long_description = ld_file.read()
 finally:
@@ -44,7 +42,7 @@ release = ".".join(str(num) for num in VERSION)
 setup(
     name = 'bitrot',
     version = release,
-    author = 'Łukasz Langa',
+    author = u'Łukasz Langa',
     author_email = 'lukasz@langa.pl',
     description = ("Detects bit rotten files on the hard drive to save your "
                    "precious photo and music collection from slow decay."),
@@ -63,11 +61,11 @@ setup(
     ],
 
     classifiers = [
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 2 :: Only',
+        'Programming Language :: Python :: 3',
         'Programming Language :: Python',
         'Topic :: System :: Filesystems',
         'Topic :: System :: Monitoring',
