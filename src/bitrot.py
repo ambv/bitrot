@@ -201,14 +201,13 @@ class Bitrot(object):
                     # The file disappeared between listing existing paths and
                     # this run or is (temporarily?) locked with different
                     # permissions. We'll just skip it for now.
-                    if self.verbosity:
-                        print(
-                            '\rwarning: `{}` is currently unavailable for '
-                            'reading: {}'.format(
-                                p_uni, ex,
-                            ),
-                            file=sys.stderr,
-                        )
+                    print(
+                        '\rwarning: `{}` is currently unavailable for '
+                        'reading: {}'.format(
+                            p_uni, ex,
+                        ),
+                        file=sys.stderr,
+                    )
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
