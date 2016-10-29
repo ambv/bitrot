@@ -115,7 +115,7 @@ def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
                 try:
                     print(
                         "warning: cannot decode file name:",
-                        path,
+                        p,
                         file=sys.stderr,
                     )
                 except UnicodeDecodeError:
