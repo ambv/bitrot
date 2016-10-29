@@ -201,14 +201,13 @@ class Bitrot(object):
                     # The file disappeared between listing existing paths and
                     # this run or is (temporarily?) locked with different
                     # permissions. We'll just skip it for now.
-                    if self.verbosity:
-                        print(
-                            '\rwarning: `{}` is currently unavailable for '
-                            'reading: {}'.format(
-                                p_uni, ex,
-                            ),
-                            file=sys.stderr,
-                        )
+                    print(
+                        '\rwarning: `{}` is currently unavailable for '
+                        'reading: {}'.format(
+                            p_uni, ex,
+                        ),
+                        file=sys.stderr,
+                    )
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
@@ -222,13 +221,12 @@ class Bitrot(object):
             try:
                 new_sha1 = sha1(p, self.chunk_size)
             except (IOError, OSError) as e:
-                if self.verbosity:
-                    print(
-                        '\rwarning: cannot compute hash of {} [{}]'.format(
-                            p, errno.errorcode[e.args[0]],
-                        ),
-                        file=sys.stderr,
-                    )
+                print(
+                    '\rwarning: cannot compute hash of {} [{}]'.format(
+                        p, errno.errorcode[e.args[0]],
+                    ),
+                    file=sys.stderr,
+                )
                 continue
 
             cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
