@@ -44,6 +44,8 @@ Change Log
 * bugfix: when using -q, don't hide warnings about files that can't be
   statted or read
 
+* bugfix: -s is no longer broken on Python 3
+
 0.9.0
 ~~~~~
 

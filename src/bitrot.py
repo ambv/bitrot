@@ -42,7 +42,7 @@ import time
 
 DEFAULT_CHUNK_SIZE = 16384
 DOT_THRESHOLD = 200
-VERSION = (0, 9, 0)
+VERSION = (0, 9, 1)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
 
@@ -382,18 +382,20 @@ def get_path(directory=b'.', ext=b'db'):
     return os.path.join(directory, b'.bitrot.' + ext)
 
 
-def stable_sum(bitrot_db):
+def stable_sum(bitrot_db=None):
     """Calculates a stable SHA512 of all entries in the database.
 
     Useful for comparing if two directories hold the same data, as it ignores
     timing information."""
+    if bitrot_db is None:
+        bitrot_db = get_path()
     digest = hashlib.sha512()
     conn = get_sqlite3_cursor(bitrot_db)
     cur = conn.cursor()
     cur.execute('SELECT hash FROM bitrot ORDER BY path')
     row = cur.fetchone()
     while row:
-        digest.update(row[0])
+        digest.update(row[0].encode('ascii'))
         row = cur.fetchone()
     return digest.hexdigest()
 
