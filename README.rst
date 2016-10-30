@@ -36,6 +36,14 @@ a 100 GB Aperture library in under 10 minutes. Both tests on HFS+.
 Change Log
 ----------
 
+0.9.1
+~~~~~
+
+* bugfix: print the path that failed to decode with FSENCODING
+
+* bugfix: when using -q, don't hide warnings about files that can't be
+  statted or read
+
 0.9.0
 ~~~~~
 

@@ -112,17 +112,10 @@ def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
             try:
                 p_uni = p.decode(FSENCODING)
             except UnicodeDecodeError:
-                try:
-                    print(
-                        "warning: cannot decode file name:",
-                        p,
-                        file=sys.stderr,
-                    )
-                except UnicodeDecodeError:
-                    # yup, even printing the filename might fail in certain
-                    # occasions
-                    pass
-
+                binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
+                binary_stderr.write(b"warning: cannot decode file name: ")
+                binary_stderr.write(p)
+                binary_stderr.write(b"\n")
                 continue
 
             try:
@@ -326,17 +319,22 @@ class Bitrot(object):
                 print('{} entries new:'.format(len(new_paths)))
                 new_paths.sort()
                 for path in new_paths:
-                    print(' ', path)
+                    print(' ', path.decode(FSENCODING))
             if updated_paths:
                 print('{} entries updated:'.format(len(updated_paths)))
                 updated_paths.sort()
                 for path in updated_paths:
-                    print(' ', path)
+                    print(' ', path.decode(FSENCODING))
             if renamed_paths:
                 print('{} entries renamed:'.format(len(renamed_paths)))
                 renamed_paths.sort()
                 for path in renamed_paths:
-                    print(' from', path[0], 'to', path[1])
+                    print(
+                        ' from',
+                        path[0].decode(FSENCODING),
+                        'to',
+                        path[1].decode(FSENCODING),
+                    )
             if missing_paths:
                 print('{} entries missing:'.format(len(missing_paths)))
                 missing_paths = sorted(missing_paths)
