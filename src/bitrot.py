@@ -186,7 +186,7 @@ class Bitrot(object):
         )
 
         for p in paths:
-            p_uni = p.decode('utf8')
+            p_uni = p.decode(FSENCODING)
             try:
                 st = os.stat(p)
             except OSError as ex:
@@ -208,7 +208,7 @@ class Bitrot(object):
             new_mtime = int(st.st_mtime)
             current_size += st.st_size
             if self.verbosity:
-                self.report_progress(current_size, total_size)
+                self.report_progress(current_size, total_size, p_uni)
 
             missing_paths.discard(p_uni)
             try:
@@ -291,12 +291,26 @@ class Bitrot(object):
             row = cur.fetchone()
         return result
 
-    def report_progress(self, current_size, total_size):
+    def report_progress(self, current_size, total_size, current_path):
         size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
         if size_fmt == self._last_reported_size:
             return
 
-        sys.stdout.write(size_fmt)
+        # show current file in progress too
+        terminal_size = shutil.get_terminal_size()
+        # but is it too big for terminal window?
+        cols = terminal_size.columns
+        max_path_size = cols - len(size_fmt) - 1
+        if len(current_path) > max_path_size:
+            # show first half and last half, separated by ellipsis
+            # e.g. averylongpathnameaveryl...ameaverylongpathname
+            half_mps = (max_path_size - 3) // 2
+            current_path = current_path[:half_mps] + '...' + current_path[-half_mps:]
+        else:
+            # pad out with spaces, otherwise previous filenames won't be erased
+            current_path += ' ' * (max_path_size - len(current_path))
+            
+        sys.stdout.write(size_fmt + ' ' + current_path)
         sys.stdout.flush()
         self._last_reported_size = size_fmt
 
