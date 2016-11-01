@@ -174,5 +174,5 @@ Glued together by `Łukasz Langa <mailto:lukasz@langa.pl>`_. Multiple
 improvements by `Yang Zhang <mailto:yaaang@gmail.com>`_, `Jean-Louis
 Fuchs <mailto:ganwell@fangorn.ch>`_, `Phil Lundrigan
 <mailto:philipbl@cs.utah.edu>`_, `Ben Shepherd
-<mailto:bjashepherd@gmail.com`, and `Peter Hofmann
+<mailto:bjashepherd@gmail.com>`_, and `Peter Hofmann
 <mailto:scm@uninformativ.de>`_.
