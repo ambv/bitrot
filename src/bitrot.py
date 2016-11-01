@@ -142,13 +142,14 @@ class BitrotException(Exception):
 class Bitrot(object):
     def __init__(
         self, verbosity=1, test=False, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE,
+        chunk_size=DEFAULT_CHUNK_SIZE, file_list=None,
     ):
         self.verbosity = verbosity
         self.test = test
         self.follow_links = follow_links
         self.commit_interval = commit_interval
         self.chunk_size = chunk_size
+        self.file_list = file_list
         self._last_reported_size = ''
         self._last_commit_ts = 0
 
@@ -180,10 +181,14 @@ class Bitrot(object):
         errors = []
         current_size = 0
         missing_paths = self.select_all_paths(cur)
-        paths, total_size = list_existing_paths(
-            b'.', expected=missing_paths, ignored={bitrot_db, bitrot_sha512},
-            follow_links=self.follow_links,
-        )
+        if self.file_list:
+            paths = [line.rstrip('\n').encode(FSENCODING) for line in self.file_list.readlines()]
+            total_size = sum([os.path.getsize(filename) for filename in paths])
+        else:
+            paths, total_size = list_existing_paths(
+                b'.', expected=missing_paths, ignored={bitrot_db, bitrot_sha512},
+                follow_links=self.follow_links,
+            )
 
         for p in paths:
             p_uni = p.decode(FSENCODING)
@@ -513,6 +518,10 @@ def run_from_command_line():
         '--fsencoding', default='',
         help='override the codec to decode filenames, otherwise taken from '
              'the LANG environment variables')
+    parser.add_argument(
+        '-f', '--file-list', default='',
+        help='only read the files listed in this file (use - for stdin)')
+    
     args = parser.parse_args()
     if args.sum:
         try:
@@ -525,12 +534,23 @@ def run_from_command_line():
             verbosity = 0
         elif args.verbose:
             verbosity = 2
+        if args.file_list == '-':
+            if verbosity:
+                print('Using stdin for file list')
+            file_list = sys.stdin
+        elif args.file_list:
+            if verbosity:
+                print('Opening file list in', args.file_list)
+            file_list = open(args.file_list)
+        else:
+            file_list = None
         bt = Bitrot(
             verbosity=verbosity,
             test=args.test,
             follow_links=args.follow_links,
             commit_interval=args.commit_interval,
             chunk_size=args.chunk_size,
+            file_list=file_list
         )
         if args.fsencoding:
             FSENCODING = args.fsencoding
@@ -540,6 +560,8 @@ def run_from_command_line():
             print('error:', bre.args[1], file=sys.stderr)
             sys.exit(bre.args[0])
 
+        if file_list:
+            file_list.close() # should be harmless if file_list == sys.stdin
 
 if __name__ == '__main__':
     run_from_command_line()
