@@ -27,14 +27,31 @@ a folder after moving it to another drive.
 Performance
 -----------
 
-Obviously depends on how fast the underlying drive is. No rigorous
-performance tests have been done. For informational purposes, a typical
-5400 RPM laptop hard drive scanning a 60+ GB music library takes around
-15 minutes. On an OCZ Vertex 3 SSD drive ``bitrot`` is able to scan
-a 100 GB Aperture library in under 10 minutes. Both tests on HFS+.
+Obviously depends on how fast the underlying drive is. Since bandwidth
+for checksum calculations is greater than your drive's data transfer
+rate, even when comparing mobile CPUs vs. SSD drives, the script is
+single-threaded.
+
+No rigorous performance tests have been done.  Scanning a ~1000 files
+totalling ~4 GB takes 20 seconds on a 2015 Macbook Air (SM0256G SSD).
+This is with cold disk cache.
+
+Some other tests back from 2013: a typical 5400 RPM laptop hard drive
+scanning a 60+ GB music library took around 15 minutes. On an OCZ
+Vertex 3 SSD drive ``bitrot`` was able to scan a 100 GB Aperture library
+in under 10 minutes. Both tests on HFS+.
+
+If you'd like to contribute some more rigorous eenchmarks or any
+performance improvements, I'm accepting pull requests! :)
 
 Change Log
 ----------
+
+0.9.2
+~~~~~
+
+* bugfix: one place in the code incorrectly hardcoded UTF-8 as the
+  filesystem encoding
 
 0.9.1
 ~~~~~
@@ -155,4 +172,7 @@ Authors
 
 Glued together by `Łukasz Langa <mailto:lukasz@langa.pl>`_. Multiple
 improvements by `Yang Zhang <mailto:yaaang@gmail.com>`_, `Jean-Louis
-Fuchs <mailto:ganwell@fangorn.ch>`_ and `Phil Lundrigan <mailto:philipbl@cs.utah.edu>`_.
+Fuchs <mailto:ganwell@fangorn.ch>`_, `Phil Lundrigan
+<mailto:philipbl@cs.utah.edu>`_, `Ben Shepherd
+<mailto:bjashepherd@gmail.com`, and `Peter Hofmann
+<mailto:scm@uninformativ.de>`_.

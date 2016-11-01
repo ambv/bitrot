@@ -40,9 +40,9 @@ import tempfile
 import time
 
 
-DEFAULT_CHUNK_SIZE = 16384
+DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 200
-VERSION = (0, 9, 1)
+VERSION = (0, 9, 2)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
 
