@@ -186,7 +186,7 @@ class Bitrot(object):
         )
 
         for p in paths:
-            p_uni = p.decode('utf8')
+            p_uni = p.decode(FSENCODING)
             try:
                 st = os.stat(p)
             except OSError as ex:
