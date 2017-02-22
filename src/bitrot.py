@@ -104,7 +104,7 @@ def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
     `follow_links` is False (the default).  All entries present in `expected`
     must be files (can't be directories or symlinks).
     """
-    paths = []
+    paths = set()
     total_size = 0
     for path, _, files in os.walk(directory):
         for f in files:
@@ -129,9 +129,8 @@ def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
             else:
                 if not stat.S_ISREG(st.st_mode) or p in ignored:
                     continue
-                paths.append(p)
+                paths.add(p)
                 total_size += st.st_size
-    paths.sort()
     return paths, total_size
 
 
@@ -180,12 +179,13 @@ class Bitrot(object):
         errors = []
         current_size = 0
         missing_paths = self.select_all_paths(cur)
-        paths, total_size = list_existing_paths(
+        hashes_dict_db = self.select_all_hashes(cur)
+        paths_fs, total_size = list_existing_paths(
             b'.', expected=missing_paths, ignored={bitrot_db, bitrot_sha512},
             follow_links=self.follow_links,
         )
 
-        for p in paths:
+        for p in paths_fs:
             p_uni = p.decode(FSENCODING)
             try:
                 st = os.stat(p)
@@ -227,7 +227,7 @@ class Bitrot(object):
             row = cur.fetchone()
             if not row:
                 stored_path = self.handle_unknown_path(
-                    cur, p_uni, new_mtime, new_sha1,
+                    cur, p_uni, new_mtime, new_sha1, paths_fs, hashes_dict_db
                 )
                 self.maybe_commit(conn)
 
@@ -291,6 +291,22 @@ class Bitrot(object):
             row = cur.fetchone()
         return result
 
+    def select_all_hashes(self, cur):
+        result = {}
+        cur.execute('SELECT hash, path FROM bitrot order by hash')
+        row = cur.fetchone()
+        chash = ''
+        while row: 
+            rhash, rpath = row
+            if chash != rhash:
+                result[rhash] = set([ rpath ])
+            else:
+                result[rhash].add(rpath)
+
+            chash = rhash
+            row = cur.fetchone()
+        return result
+
     def report_progress(self, current_size, total_size):
         size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
         if size_fmt == self._last_reported_size:
@@ -345,36 +361,32 @@ class Bitrot(object):
         if self.test and self.verbosity:
             print('warning: database file not updated on disk (test mode).')
 
-    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1):
+    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1, paths_fs, hashes_dict_db):
         """Either add a new entry to the database or update the existing entry
         on rename.
 
         Returns `new_path` if the entry was indeed new or the `stored_path` (e.g.
         outdated path) if there was a rename.
         """
-        cur.execute('SELECT mtime, path, timestamp FROM bitrot WHERE hash=?',
-                    (new_sha1,))
-        rows = cur.fetchall()
-        for row in rows:
-            stored_mtime, stored_path, stored_ts = row
-            if os.path.exists(stored_path):
-                # file still exists, move on
-                continue
 
-            # update the path in the database
+        try: # if doesn't exist the fs path of the database
+            found = [path for path in hashes_dict_db[new_sha1] if path not in paths_fs]
+            renamed = found.pop()
+            if renamed :
+                # update the path in the database
+                cur.execute(
+                    'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
+                    (new_mtime, new_path, ts(), renamed),
+                )
+
+                return renamed
+        except:
+            # no rename, just a new file with the same hash
             cur.execute(
-                'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
-                (new_mtime, new_path, ts(), stored_path),
+                'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
+                (new_path, new_mtime, new_sha1, ts()),
             )
-
-            return stored_path
-
-        # no rename, just a new file with the same hash
-        cur.execute(
-            'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
-            (new_path, new_mtime, new_sha1, ts()),
-        )
-        return new_path
+            return new_path
 
 
 def get_path(directory=b'.', ext=b'db'):
