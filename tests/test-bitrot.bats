@@ -1,15 +1,12 @@
 #!/usr/bin/env bats
 
-#WARNING!
-#Be careful don't use ((, cause (( $status == pp )) && echo Really WRONG!
-#the issue is that (( 0 == letters )) is always true ... :(
-
 load test_helper
 
 
-# r=~/.local/bin/bitrot
+#change it to your testing bitrot
+cmd=~/Clones/bitrot/src/bitrot.py
 
-r=~/Clones/bitrot/src/bitrot.py
+# cmd=bitrot
 
 test_dir=/tmp/bitrot_dir-$USER
 mkdir -p  $test_dir
@@ -23,7 +20,7 @@ cd $test_dir || exit
 mkdir -p notemptydirs/dir2/
 touch notemptydirs/dir2/new-file-{a,b}.txt
 echo $RANDOM >> notemptydirs/dir2/new-file-b.txt
-run $r -v
+run $cmd -v
 # check_fail "${lines[@]}"
 
 (( $status == 0 ))
@@ -39,7 +36,7 @@ run $r -v
 @test "bitrot detects modified files in a tree dir" {
 sleep 1
 echo $RANDOM >> notemptydirs/dir2/new-file-a.txt
-run $r -v
+run $cmd -v
 # check_fail "${lines[@]}"
 
 (( $status == 0 ))
@@ -54,7 +51,7 @@ run $r -v
 @test "bitrot detects renamed files in a tree dir" {
 sleep 1
 mv notemptydirs/dir2/new-file-a.txt notemptydirs/dir2/new-file-a.txt2
-run $r -v
+run $cmd -v
 # check_fail "${lines[@]}"
 
 (( $status == 0 ))
@@ -69,7 +66,7 @@ run $r -v
 @test "bitrot detects delete files in a tree dir" {
 sleep 1
 rm  notemptydirs/dir2/new-file-a.txt2
-run $r -v
+run $cmd -v
 # check_fail "${lines[@]}"
 
 (( $status == 0 ))
@@ -86,7 +83,7 @@ run $r -v
 sleep 1
 touch more-files-{a,b,c,d,e,f,g}.txt
 echo $RANDOM >> notemptydirs/dir2/new-file-b.txt
-run $r -v
+run $cmd -v
 #check_fail "${lines[@]}"
 
 (( $status == 0 ))
@@ -113,7 +110,7 @@ done
 echo $RANDOM >> notemptydirs/dir2/new-file-b.txt
 mv more-files-a.txt more-files-a.txt2
 rm more-files-g.txt
-run $r -v
+run $cmd -v
 
 (( $status == 0 ))
 
@@ -149,7 +146,9 @@ cp notemptydirs/pl-more-files-d.txt  notemptydirs/pl2-more-files-d.txt2
 
 rm more-files-f.txt notemptydirs/pl-more-files-c.txt 
 
-run $r -v
+run $cmd -v
+
+check_fail "${lines[@]}"
 
 (( $status == 0 ))
 
@@ -183,7 +182,7 @@ dd if=/dev/urandom of=masterfile bs=1 count=327680
 #split it in 3277 files (instantly) + masterfile = 3278
 split -b 100 -a 10 masterfile
 cd $test_dir
-run $r 
+run $cmd 
 
 (( $status == 0 ))
 [[ ${lines[2]} = "3299 entries in the database, 3278 new, 0 updated, 0 renamed, 0 missing." ]]
@@ -193,8 +192,8 @@ run $r
 @test "bitrot can operate with 3278 files easily in a dir 2 " {
 sleep 1
 mv alotfiles/here alotfiles/here-moved
-run $r 
-# check_fail "${lines[@]}"
+run $cmd 
+#check_fail "${lines[@]}"
 
 (( $status == 0 ))
 [[ ${lines[2]}   = "3299 entries in the database, 0 new, 0 updated, 3278 renamed, 0 missing." ]]
@@ -203,10 +202,10 @@ run $r
 
 @test "bitrot can detetect a bitrot in a dir !  " {
 sleep 1
-generate_bitrot ./bitrot-file 10 2 $r
-run $r -q
+generate_bitrot ./bitrot-file 10 2 $cmd
+run $cmd -q
 
-check_fail "${lines[@]}"
+#check_fail "${lines[@]}"
 
 (( $status == 1 ))
 [[ ${lines[0]} = *"error: SHA1 mismatch for ./bitrot-file: expected"* ]]

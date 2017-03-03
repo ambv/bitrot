@@ -39,6 +39,7 @@ import sys
 import tempfile
 import time
 
+import logging
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 200
@@ -179,13 +180,13 @@ class Bitrot(object):
         errors = []
         current_size = 0
         missing_paths = self.select_all_paths(cur)
-        hashes_dict_db = self.select_all_hashes(cur)
-        paths_fs, total_size = list_existing_paths(
+        hashes = self.select_all_hashes(cur)
+        paths, total_size = list_existing_paths(
             b'.', expected=missing_paths, ignored={bitrot_db, bitrot_sha512},
             follow_links=self.follow_links,
         )
 
-        for p in paths_fs:
+        for p in sorted(paths):
             p_uni = p.decode(FSENCODING)
             try:
                 st = os.stat(p)
@@ -227,7 +228,7 @@ class Bitrot(object):
             row = cur.fetchone()
             if not row:
                 stored_path = self.handle_unknown_path(
-                    cur, p_uni, new_mtime, new_sha1, paths_fs, hashes_dict_db
+                    cur, p_uni, new_mtime, new_sha1, paths, hashes
                 )
                 self.maybe_commit(conn)
 
@@ -293,17 +294,12 @@ class Bitrot(object):
 
     def select_all_hashes(self, cur):
         result = {}
-        cur.execute('SELECT hash, path FROM bitrot order by hash')
+        # cur.execute('SELECT hash, path FROM bitrot order by hash')
+        cur.execute('SELECT hash, path FROM bitrot')
         row = cur.fetchone()
-        chash = ''
         while row: 
             rhash, rpath = row
-            if chash != rhash:
-                result[rhash] = set([ rpath ])
-            else:
-                result[rhash].add(rpath)
-
-            chash = rhash
+            result.setdefault(rhash, set()).add(rpath)
             row = cur.fetchone()
         return result
 
@@ -361,7 +357,7 @@ class Bitrot(object):
         if self.test and self.verbosity:
             print('warning: database file not updated on disk (test mode).')
 
-    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1, paths_fs, hashes_dict_db):
+    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1, paths, hashes):
         """Either add a new entry to the database or update the existing entry
         on rename.
 
@@ -369,25 +365,24 @@ class Bitrot(object):
         outdated path) if there was a rename.
         """
 
-        try: # if doesn't exist the fs path of the database
-            found = [path for path in hashes_dict_db[new_sha1] if path not in paths_fs]
+        try: # if the path isn't in the database
+            found = [path for path in hashes[new_sha1] if path not in paths]
             renamed = found.pop()
-            if renamed :
-                # update the path in the database
-                cur.execute(
-                    'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
-                    (new_mtime, new_path, ts(), renamed),
-                )
+            # update the path in the database
+            cur.execute(
+                'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
+                (new_mtime, new_path, ts(), renamed),
+            )
 
-                return renamed
-        except:
-            # no rename, just a new file with the same hash
+            return renamed
+        
+        # From hashes[new_sha1] or found.pop() 
+        except (KeyError,IndexError):
             cur.execute(
                 'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
                 (new_path, new_mtime, new_sha1, ts()),
             )
             return new_path
-
 
 def get_path(directory=b'.', ext=b'db'):
     """Compose the path to the selected bitrot file."""
