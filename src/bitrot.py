@@ -39,7 +39,6 @@ import sys
 import tempfile
 import time
 
-import logging
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 200
