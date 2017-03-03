@@ -293,7 +293,6 @@ class Bitrot(object):
 
     def select_all_hashes(self, cur):
         result = {}
-        # cur.execute('SELECT hash, path FROM bitrot order by hash')
         cur.execute('SELECT hash, path FROM bitrot')
         row = cur.fetchone()
         while row: 
