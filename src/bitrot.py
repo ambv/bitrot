@@ -187,7 +187,7 @@ class Bitrot(object):
 
 
     def maybe_commit(self, conn):
-        if (self.no_time == False) and (time.time() < self._last_commit_ts + self.commit_interval):
+        if (time.time() < self._last_commit_ts + self.commit_interval):
             # no time for commit yet!
             return
 
