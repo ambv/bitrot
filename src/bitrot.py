@@ -352,7 +352,7 @@ class Bitrot(object):
                             MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 second'.format(p.decode('utf-8'),
                             stored_sha1,new_sha1,stored_ts))
                         else:
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.0f} minutes'.format(p.decode('utf-8'),
+                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} seconds'.format(p.decode('utf-8'),
                             stored_sha1,new_sha1,stored_ts,elapsedTime))
 
                     MSG['Subject'] = 'FIM Error'
@@ -419,8 +419,7 @@ class Bitrot(object):
             else:
                 print('Time elapsed: {:.0f} seconds.'.format(elapsedTime))
                 if (self.log):
-                     writeToLog('\nTime elapsed: {:.0f} seconds.'.format(elapsedTime))
-
+                     writeToLog('\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
 
         if errors:
             if len(errors) == 1:
@@ -431,6 +430,7 @@ class Bitrot(object):
                 raise BitrotException(
                     1, 'There were {} errors found.'.format(len(errors)), errors,
                 )
+
 
     def select_all_paths(self, cur):
         result = set()
