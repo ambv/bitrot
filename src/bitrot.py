@@ -570,17 +570,19 @@ class Bitrot(object):
                 for path in renamed_paths:
                     print(
                         ' from',
-                        path[0].decode(FSENCODING),
+                        #path[0].decode(FSENCODING),
+                        path[0],
                         'to',
-                        path[1].decode(FSENCODING),
+                        #path[1].decode(FSENCODING),
+                        path[1],
                     )
                     if (self.log):
                         writeToLog('\n from')
-                        #writeToLog(path[0]) 
-                        writeToLog(path[0].decode(FSENCODING))
+                        writeToLog(path[0]) 
+                        #writeToLog(path[0].decode(FSENCODING))
                         writeToLog('to')
-                        #writeToLog(path[1]) 
-                        writeToLog(path[1].decode(FSENCODING))
+                        writeToLog(path[1]) 
+                        #writeToLog(path[1].decode(FSENCODING))
                     
 
             if missing_paths:
