@@ -187,7 +187,7 @@ class Bitrot(object):
 
 
     def maybe_commit(self, conn):
-        if (time.time() < self._last_commit_ts + self.commit_interval):
+        if time.time() < self._last_commit_ts + self.commit_interval:
             # no time for commit yet!
             return
 
@@ -201,11 +201,6 @@ class Bitrot(object):
 
         check_sha512_integrity(verbosity=self.verbosity, log=self.log)
         
-        startTime = self.startTime
-
-        
-        
-
         try:
             conn = get_sqlite3_cursor(bitrot_db, copy=self.test)
         except ValueError:
@@ -326,7 +321,7 @@ class Bitrot(object):
                             p, stored_sha1, new_sha1, stored_ts
                         ))
 
-                elapsedTime = (time.clock() - startTime)
+                elapsedTime = (time.clock() - self.startTime)
 
                 if (self.email):
                     if (elapsedTime > 3600):
@@ -387,7 +382,7 @@ class Bitrot(object):
 
         update_sha512_integrity(verbosity=self.verbosity, log=self.log)
 
-        elapsedTime = (time.clock() - startTime)
+        elapsedTime = (time.clock() - self.startTime)
         
         if (elapsedTime > 3600):
             elapsedTime /= 3600
@@ -574,16 +569,18 @@ class Bitrot(object):
                 renamed_paths.sort()
                 for path in renamed_paths:
                     print(
-                        '  from',
-                        path[0],
+                        ' from',
+                        path[0].decode(FSENCODING),
                         'to',
-                        path[1],
+                        path[1].decode(FSENCODING),
                     )
                     if (self.log):
                         writeToLog('\n from')
-                        writeToLog(path[0])
+                        #writeToLog(path[0]) 
+                        writeToLog(path[0].decode(FSENCODING))
                         writeToLog('to')
-                        writeToLog(path[1])
+                        #writeToLog(path[1]) 
+                        writeToLog(path[1].decode(FSENCODING))
                     
 
             if missing_paths:
