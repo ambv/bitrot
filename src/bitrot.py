@@ -43,13 +43,14 @@ import smtplib
 import email.utils
 from email.mime.text import MIMEText
 from datetime import timedelta
-#import re
+import re
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 200
 VERSION = (0, 9, 2)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
+DEFAULT_HASH_FUNCTION = "SHA1"
 
 if sys.version[0] == '2':
     str = type(u'text')
@@ -81,21 +82,22 @@ def cleanString(stringToClean=""):
     stringToClean = ''.join([x for x in stringToClean if ord(x) < 128])
     return stringToClean
 
-def hash(path, chunk_size,hashing_function="SHA1"):
-    if   (hashing_function == "MD5") or (hashing_function == "md5"):
+def hash(path, chunk_size,hashing_function=""):
+    if   (hashing_function.upper() == "MD5"):
         digest=hashlib.md5()
-    elif (hashing_function == "SHA1") or (hashing_function == "sha1"):
+    elif (hashing_function.upper() == "SHA1"):
         digest=hashlib.sha1()
-    elif (hashing_function == "SHA224") or (hashing_function == "sha224"):
+    elif (hashing_function.upper() == "SHA224"):
         digest=hashlib.sha224()
-    elif (hashing_function == "SHA384") or (hashing_function == "sha384"):
+    elif (hashing_function.upper() == "SHA384"):
         digest=hashlib.sha384()
-    elif (hashing_function == "SHA256") or (hashing_function == "sha256"):
+    elif (hashing_function.upper() == "SHA256"):
         digest=hashlib.sha256()
-    elif (hashing_function == "SHA512") or (hashing_function == "sha512"):
+    elif (hashing_function.upper() == "SHA512"):
         digest=hashlib.sha512() 
     else:
-        digest=hashlib.sha1()
+        hash(path,chunk_size,DEFAULT_HASH_FUNCTION)
+        return
 
     with open(path, 'rb') as f:
         d = f.read(chunk_size)
@@ -201,7 +203,7 @@ class BitrotException(Exception):
 class Bitrot(object):
     def __init__(
         self, verbosity=1, email = False, log = False, test=False, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE, file_list=None, exclude_list=[],  no_time=False, hashing_function="SHA1"
+        chunk_size=DEFAULT_CHUNK_SIZE, file_list=None, exclude_list=[],  no_time=False, hashing_function=""
     ):
         self.verbosity = verbosity
         self.test = test
@@ -337,21 +339,25 @@ class Bitrot(object):
             if stored_hash != new_hash:
                 errors.append(p)
 
+                if (isValidHashingFunction(self.hashing_function)):
+                    hashingFunctionString = self.hashing_function
+                else:
+                    hashingFunctionString = DEFAULT_HASH_FUNCTION
+                    
                 print(
-                    '\rError: SHA1 mismatch for {}\nExpected: {}\nGot:      {}'
+                    '\rError: {} mismatch for {}\nExpected: {}\nGot:      {}'
                     '\nLast good hash checked on {}\n'.format(
                     #p, stored_hash, new_hash, stored_ts
-                    p.decode(FSENCODING), stored_hash, new_hash, stored_ts
+                    hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts
                     ),
                     file=sys.stderr,
                 )
                 if (self.log):
                     writeToLog(
-                        '\n\nError: SHA1 mismatch for {}\nExpected: {}\nGot:      {}'
+                        '\n\nError: {} mismatch for {}\nExpected: {}\nGot:      {}'
                         '\nLast good hash checked on {}'.format(
                         #p, stored_hash, new_hash, stored_ts
-                        p.decode(FSENCODING), stored_hash, new_hash, stored_ts
-                        ))
+                        hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))
 
                 elapsedTime = (time.clock() - self.startTime)
 
@@ -771,9 +777,19 @@ def update_sha512_integrity(verbosity=1, log=1):
             if (log):
                 writeToLog('done.')
 
+def isValidHashingFunction(stringToValidate=""):
+    if  (stringToValidate.upper() == "SHA1"
+      or stringToValidate.upper() == "SHA224"
+      or stringToValidate.upper() == "SHA384"
+      or stringToValidate.upper() == "SHA256"
+      or stringToValidate.upper() == "SHA512"
+      or stringToValidate.upper() == "MD5"):
+        return True
+    else:
+        return False
+
 def run_from_command_line():
     global FSENCODING
-
     parser = argparse.ArgumentParser(prog='bitrot')
     parser.add_argument(
         '-l', '--follow-links', action='store_true',
@@ -827,7 +843,7 @@ def run_from_command_line():
         '-n', '--no-time', action='store_true',
         help='Doesnt compare dates, only hashes. Also enables test-only mode')
     parser.add_argument(
-        '-a', '--hashing-function', default='SHA1',
+        '-a', '--hashing-function', default='',
         help='Doesnt compare dates, only hashes. Also enables test-only mode')
     
     args = parser.parse_args()
@@ -878,7 +894,7 @@ def run_from_command_line():
             exclude_list = []
         bt = Bitrot(
             verbosity=verbosity,
-            hashing_function=args.hashing_function,
+            hashing_function=args.hashing_function.upper(),
             test=args.test,
             email=args.email,
             log = args.log,
@@ -889,6 +905,8 @@ def run_from_command_line():
             file_list=file_list,
             exclude_list=exclude_list,
         )
+        if args.fsencoding:
+            FSENCODING = args.fsencoding
         if (args.hashing_function):
             #combined = '\t'.join(hashlib.algorithms_available)
             #if (args.hashing_function in combined):
@@ -898,29 +916,17 @@ def run_from_command_line():
             #algorithms_available = hashlib.algorithms_available
             #search = args.hashing_function
             #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
-            if (   args.hashing_function == "SHA1"
-                or args.hashing_function == "sha1"
-                or args.hashing_function == "SHA224"
-                or args.hashing_function == "sha224"
-                or args.hashing_function == "SHA384"
-                or args.hashing_function == "sha384"
-                or args.hashing_function == "SHA256"
-                or args.hashing_function == "sha256"
-                or args.hashing_function == "SHA512"
-                or args.hashing_function == "sha512"
-                or args.hashing_function == "MD5"
-                or args.hashing_function == "md5"):
-                hashing_function = args.hashing_function
-                print('Using {} for hashing function'.format(args.hashing_function))   
-                if (args.log):
-                   writeToLog('Using {} for hashing function'.format(args.hashing_function))
-            else:
-                hashing_function = args.hashing_function
-                print("Invalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
-                if (args.log):
-                    writeToLog("\nInvalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
-        if args.fsencoding:
-            FSENCODING = args.fsencoding
+                if (isValidHashingFunction(args.hashing_function) == True):
+                    hashing_function = args.hashing_function
+                    print('Using {} for hashing function'.format(args.hashing_function))   
+                    if (args.log):
+                       writeToLog('Using {} for hashing function'.format(args.hashing_function))
+                else:
+                    print("Invalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
+                    if (args.log):
+                        writeToLog("\nInvalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
+        else:
+            hashing_function = None
         try:
             bt.run()
         except BitrotException as bre:
