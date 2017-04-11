@@ -51,26 +51,38 @@ VERSION = (0, 9, 2)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
 
-MSG = MIMEText('')
-FROMADDR = 'author@gmail.com'
-TOADDR  = 'recipient@gmail.com'
-MSG['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-MSG['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
-USERNAME = 'authorUsername'
-PASSWORD = 'authorPassword'
-
-
 if sys.version[0] == '2':
     str = type(u'text')
     # use `bytes` for bytestrings
+
+def sendMail(stringToSend=""):
+    msg = MIMEText(stringToSend)
+
+    FROMADDR = 'author@gmail.com'
+    TOADDR  = 'recipient@gmail.com'
+    MSG['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
+    MSG['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
+    USERNAME = 'authorUsername'
+    PASSWORD = 'authorPassword'
+
+    msg['Subject'] = 'FIM Error'
+    # The actual mail send
+    server = smtplib.SMTP('smtp.gmail.com:587')
+    server.starttls()
+    server.login(USERNAME,PASSWORD)
+    try:
+        server.sendmail(FROMADDR, TOADDR, msg.as_string())
+    finally:
+        server.quit()
+
 
 def cleanString(stringToClean=""):
     #stringToClean=re.sub(r'[\\/*?:"<>|]',"",stringToClean)
     stringToClean = ''.join([x for x in stringToClean if ord(x) < 128])
     return stringToClean
 
-def sha1(path, chunk_size):
-    digest = hashlib.sha1()
+def sha512(path, chunk_size):
+    digest = hashlib.sha512()
     with open(path, 'rb') as f:
         d = f.read(chunk_size)
         while d:
@@ -167,8 +179,10 @@ def list_existing_paths(directory, expected=(), ignored=(),
 
     return paths, total_size
 
+
 class BitrotException(Exception):
     pass
+
 
 class Bitrot(object):
     def __init__(
@@ -187,8 +201,7 @@ class Bitrot(object):
         self.email = email
         self.log = log
         self.no_time = no_time
-        self.startTime = time.clock()  
-
+        self.startTime = time.clock()
 
     def maybe_commit(self, conn):
         if time.time() < self._last_commit_ts + self.commit_interval:
@@ -268,7 +281,7 @@ class Bitrot(object):
 
             missing_paths.discard(p_uni)
             try:
-                new_sha1 = sha1(p, self.chunk_size)
+                new_sha512 = sha512(p, self.chunk_size)
             except (IOError, OSError) as e:
                 print(
                     '\rWarning: cannot compute hash of {} [{}]'.format(
@@ -288,7 +301,7 @@ class Bitrot(object):
             row = cur.fetchone()
             if not row:
                 stored_path = self.handle_unknown_path(
-                    cur, p_uni, new_mtime, new_sha1, paths, hashes
+                    cur, p_uni, new_mtime, new_sha512, paths, hashes
                 )
                 self.maybe_commit(conn)
 
@@ -298,22 +311,22 @@ class Bitrot(object):
                     renamed_paths.append((stored_path, p_uni))
                     missing_paths.discard(stored_path)
                 continue
-            stored_mtime, stored_sha1, stored_ts = row
+            stored_mtime, stored_sha512, stored_ts = row
             if (int(stored_mtime) != new_mtime) and (self.no_time == False):
                 updated_paths.append(p)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
                             'WHERE path=?',
-                            (new_mtime, new_sha1, ts(), p_uni))
+                            (new_mtime, new_sha512, ts(), p_uni))
                 self.maybe_commit(conn)
                 continue
-            if stored_sha1 != new_sha1:
+            if stored_sha512 != new_sha512:
                 errors.append(p)
 
                 print(
                     '\rError: SHA1 mismatch for {}\nExpected: {}\nGot:      {}'
                     '\nLast good hash checked on {}\n'.format(
-                    #p, stored_sha1, new_sha1, stored_ts
-                    p.decode(FSENCODING), stored_sha1, new_sha1, stored_ts
+                    #p, stored_sha512, new_sha512, stored_ts
+                    p.decode(FSENCODING), stored_sha512, new_sha512, stored_ts
                     ),
                     file=sys.stderr,
                 )
@@ -321,8 +334,8 @@ class Bitrot(object):
                     writeToLog(
                         '\n\nError: SHA1 mismatch for {}\nExpected: {}\nGot:      {}'
                         '\nLast good hash checked on {}'.format(
-                        #p, stored_sha1, new_sha1, stored_ts
-                        p.decode(FSENCODING), stored_sha1, new_sha1, stored_ts
+                        #p, stored_sha512, new_sha512, stored_ts
+                        p.decode(FSENCODING), stored_sha512, new_sha512, stored_ts
                         ))
 
                 elapsedTime = (time.clock() - self.startTime)
@@ -331,41 +344,29 @@ class Bitrot(object):
                     if (elapsedTime > 3600):
                         elapsedTime /= 3600
                         if ((int)(elapsedTime) == 1):
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 hour'.format(p.decode(FSENCODING),
-                            stored_sha1,new_sha1,stored_ts))
+                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 hour'.format(p.decode(FSENCODING),
+                            stored_sha512,new_sha512,stored_ts))
                         else:
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} hours'.format(p.decode(FSENCODING),
-                            stored_sha1,new_sha1,stored_ts,elapsedTime))
+                           sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} hours'.format(p.decode(FSENCODING),
+                            stored_sha512,new_sha512,stored_ts,elapsedTime))
 
                     elif (elapsedTime > 60):
                         elapsedTime /= 60
                         if ((int)(elapsedTime) == 1):
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 minute'.format(p.decode(FSENCODING),
-                            stored_sha1,new_sha1,stored_ts))
+                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 minute'.format(p.decode(FSENCODING),
+                            stored_sha512,new_sha512,stored_ts))
                         else:
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} minutes'.format(p.decode(FSENCODING),
-                            stored_sha1,new_sha1,stored_ts,elapsedTime))
+                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} minutes'.format(p.decode(FSENCODING),
+                            stored_sha512,new_sha512,stored_ts,elapsedTime))
 
                     else:
                         if ((int)(elapsedTime) == 1):
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 second'.format(p.decode(FSENCODING),
-                            stored_sha1,new_sha1,stored_ts))
+                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 second'.format(p.decode(FSENCODING),
+                            stored_sha512,new_sha512,stored_ts))
                         else:
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} seconds'.format(p.decode(FSENCODING),
-                            stored_sha1,new_sha1,stored_ts,elapsedTime))
-
-                    MSG['Subject'] = 'FIM Error'
-                    # The actual mail send
-                    server = smtplib.SMTP('smtp.gmail.com:587')
-                    server.starttls()
-                    server.login(USERNAME,PASSWORD)
-                    try:
-                        server.sendmail(FROMADDR, TOADDR, MSG.as_string())
-                    finally:
-                        server.quit()
+                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} seconds'.format(p.decode(FSENCODING),
+                            stored_sha512,new_sha512,stored_ts,elapsedTime))
                     
-
-
         for path in missing_paths:
             cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
 
@@ -460,6 +461,10 @@ class Bitrot(object):
         # but is it too big for terminal window?
         cols = terminal_size.columns
         max_path_size = cols - len(size_fmt) - 1
+
+        #without this line, weird character in the filename could cause strange printing output
+        current_path = cleanString(current_path)
+
         if len(current_path) > max_path_size:
             # show first half and last half, separated by ellipsis
             # e.g. averylongpathnameaveryl...ameaverylongpathname
@@ -467,7 +472,6 @@ class Bitrot(object):
             current_path = current_path[:half_mps] + '...' + current_path[-half_mps:]
         else:
             # pad out with spaces, otherwise previous filenames won't be erased
-            current_path = cleanString(current_path)
             current_path += ' ' * (max_path_size - len(current_path))
             
         sys.stdout.write(size_fmt + ' ' + current_path)
@@ -607,7 +611,7 @@ class Bitrot(object):
             if (self.log):
                 writeToLog('Warning: database file not updated on disk (test mode).')
 
-    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1, paths, hashes):
+    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha512, paths, hashes):
         """Either add a new entry to the database or update the existing entry
         on rename.
         Returns `new_path` if the entry was indeed new or the `stored_path` (e.g.
@@ -615,7 +619,7 @@ class Bitrot(object):
         """
 
         try: # if the path isn't in the database
-            found = [path for path in hashes[new_sha1] if path not in paths]
+            found = [path for path in hashes[new_sha512] if path not in paths]
             renamed = found.pop()
             # update the path in the database
             cur.execute(
@@ -625,11 +629,11 @@ class Bitrot(object):
 
             return renamed
         
-        # From hashes[new_sha1] or found.pop() 
+        # From hashes[new_sha512] or found.pop() 
         except (KeyError,IndexError):
             cur.execute(
                 'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
-                (new_path, new_mtime, new_sha1, ts()),
+                (new_path, new_mtime, new_sha512, ts()),
             )
             return new_path
 
@@ -830,6 +834,7 @@ def run_from_command_line():
             verbosity = 2
         if args.no_time:
             no_time = 1
+            args.test = 1
         if args.file_list == '-':
             if verbosity:
                 print('Using stdin for file list')
