@@ -810,7 +810,7 @@ def run_from_command_line():
         help='logs activity')
     parser.add_argument(
         '-n', '--no-time', action='store_true',
-        help='Doesnt compare dates, only hashes')
+        help='Doesnt compare dates, only hashes. Also enables test-only mode')
     
     args = parser.parse_args()
     if args.sum:
