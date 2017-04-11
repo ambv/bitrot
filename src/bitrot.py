@@ -59,11 +59,13 @@ MSG['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
 USERNAME = 'authorUsername'
 PASSWORD = 'authorPassword'
 
+
 if sys.version[0] == '2':
     str = type(u'text')
     # use `bytes` for bytestrings
 
 def cleanString(stringToClean=""):
+    #stringToClean=re.sub(r'[\\/*?:"<>|]',"",stringToClean)
     stringToClean = ''.join([x for x in stringToClean if ord(x) < 128])
     return stringToClean
 
@@ -150,10 +152,11 @@ def list_existing_paths(directory, expected=(), ignored=(),
             else:
                 if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
                     if verbosity > 1:
-                        print('Ignoring file: {}'.format(p))
+                        #print('Ignoring file: {}'.format(p))
+                        #print('Ignoring file: {}'.format(p.decode(FSENCODING)))
                         if (log):
-                            writeToLog('\nIgnoring file: ')
-                            writeToLog(str(p))
+                            #writeToLog("\nIgnoring file: {}".format(p))
+                            writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
 
                     continue
                 paths.add(p)
@@ -662,7 +665,6 @@ def stable_sum(bitrot_db=None):
 
 def writeToLog(stringToWrite=""):
     log_path = get_path(ext=b'log')
-    #stringToWrite = re.sub(r'[\\/*?:"<>|]',"",stringToWrite)
     stringToWrite = cleanString(stringToWrite)
     with open(log_path, 'a') as logFile:
         logFile.write(stringToWrite)
