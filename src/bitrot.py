@@ -165,7 +165,7 @@ def list_existing_paths(directory, expected=(), ignored=(),
                 if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
                     if verbosity > 1:
                         #print('Ignoring file: {}'.format(p))
-                        #print('Ignoring file: {}'.format(p.decode(FSENCODING)))
+                        print('Ignoring file: {}'.format(p.decode(FSENCODING)))
                         if (log):
                             #writeToLog("\nIgnoring file: {}".format(p))
                             writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
