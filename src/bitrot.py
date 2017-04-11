@@ -167,10 +167,8 @@ def list_existing_paths(directory, expected=(), ignored=(),
 
     return paths, total_size
 
-
 class BitrotException(Exception):
     pass
-
 
 class Bitrot(object):
     def __init__(
@@ -251,16 +249,14 @@ class Bitrot(object):
                     print(
                         '\rWarning: `{}` is currently unavailable for '
                         'reading: {}'.format(
-                            p_uni, ex,
+                            #p_uni, ex,
+                            p.decode(FSENCODING), ex,
                         ),
                         file=sys.stderr,
                     )
                     if (self.log):
-                        writeToLog('\nWarning: `{}` is currently unavailable for '
-                            'reading: {}'.format(
-                                p_uni, ex,
-                            ))
-
+                        #writeToLog('\nWarning: `{}` is currently unavailable for reading: {}'.format(p_uni, ex))
+                        writeToLog('\nWarning: `{}` is currently unavailable for reading: {}'.format(p.decode(FSENCODING), ex))
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
@@ -276,15 +272,15 @@ class Bitrot(object):
             except (IOError, OSError) as e:
                 print(
                     '\rWarning: cannot compute hash of {} [{}]'.format(
-                        p, errno.errorcode[e.args[0]],
+                        #p, errno.errorcode[e.args[0]],
+                        p.decode(FSENCODING),errno.errorcode[e.args[0]],
                     ),
                     file=sys.stderr,
                 )
                 if (self.log):
                     writeToLog('\nWarning: cannot compute hash of {} [{}]'.format(
-                            p, errno.errorcode[e.args[0]],
-                        ),
-                    )
+                            #p, errno.errorcode[e.args[0]]))
+                            p.decode(FSENCODING), errno.errorcode[e.args[0]]))
                 continue
 
             cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
@@ -316,7 +312,8 @@ class Bitrot(object):
                 print(
                     '\rError: SHA1 mismatch for {}\nExpected: {}\nGot:      {}'
                     '\nLast good hash checked on {}\n'.format(
-                       p, stored_sha1, new_sha1, stored_ts
+                    #p, stored_sha1, new_sha1, stored_ts
+                    p.decode(FSENCODING), stored_sha1, new_sha1, stored_ts
                     ),
                     file=sys.stderr,
                 )
@@ -324,7 +321,8 @@ class Bitrot(object):
                     writeToLog(
                         '\n\nError: SHA1 mismatch for {}\nExpected: {}\nGot:      {}'
                         '\nLast good hash checked on {}'.format(
-                            p, stored_sha1, new_sha1, stored_ts
+                        #p, stored_sha1, new_sha1, stored_ts
+                        p.decode(FSENCODING), stored_sha1, new_sha1, stored_ts
                         ))
 
                 elapsedTime = (time.clock() - self.startTime)
@@ -333,27 +331,27 @@ class Bitrot(object):
                     if (elapsedTime > 3600):
                         elapsedTime /= 3600
                         if ((int)(elapsedTime) == 1):
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 hour'.format(p.decode('utf-8'),
+                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 hour'.format(p.decode(FSENCODING),
                             stored_sha1,new_sha1,stored_ts))
                         else:
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} hours'.format(p.decode('utf-8'),
+                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} hours'.format(p.decode(FSENCODING),
                             stored_sha1,new_sha1,stored_ts,elapsedTime))
 
                     elif (elapsedTime > 60):
                         elapsedTime /= 60
                         if ((int)(elapsedTime) == 1):
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 minute'.format(p.decode('utf-8'),
+                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 minute'.format(p.decode(FSENCODING),
                             stored_sha1,new_sha1,stored_ts))
                         else:
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} minutes'.format(p.decode('utf-8'),
+                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} minutes'.format(p.decode(FSENCODING),
                             stored_sha1,new_sha1,stored_ts,elapsedTime))
 
                     else:
                         if ((int)(elapsedTime) == 1):
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 second'.format(p.decode('utf-8'),
+                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 second'.format(p.decode(FSENCODING),
                             stored_sha1,new_sha1,stored_ts))
                         else:
-                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} seconds'.format(p.decode('utf-8'),
+                            MSG = MIMEText('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} seconds'.format(p.decode(FSENCODING),
                             stored_sha1,new_sha1,stored_ts,elapsedTime))
 
                     MSG['Subject'] = 'FIM Error'
@@ -574,7 +572,7 @@ class Bitrot(object):
                 renamed_paths.sort()
                 for path in renamed_paths:
                     print(
-                        ' from',
+                        '  from',
                         #path[0].decode(FSENCODING),
                         path[0],
                         'to',
@@ -582,12 +580,7 @@ class Bitrot(object):
                         path[1],
                     )
                     if (self.log):
-                        writeToLog('\n from')
-                        writeToLog(path[0]) 
-                        #writeToLog(path[0].decode(FSENCODING))
-                        writeToLog('to')
-                        writeToLog(path[1]) 
-                        #writeToLog(path[1].decode(FSENCODING))
+                        writeToLog('\n from {} to {}'.format(path[0],path[1]))
                     
 
             if missing_paths:
@@ -829,12 +822,8 @@ def run_from_command_line():
                 if os.path.exists(log_path):
                     writeToLog('\n')
                     writeToLog('======================================================\n')
-                    
                 writeToLog('Log started at ')
-                writeToLog(
-                (datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
-
-
+                writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         if args.quiet:
             verbosity = 0
         elif args.verbose:
