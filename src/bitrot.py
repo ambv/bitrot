@@ -53,16 +53,19 @@ FSENCODING = sys.getfilesystemencoding()
 
 MSG = MIMEText('')
 FROMADDR = 'author@gmail.com'
-TOADDR  = 'receiver@gmail.com'
-MSG['To'] = email.utils.formataddr(('Receiver', 'receiver@gmail.com'))
-MSG['From'] = email.utils.formataddr(('Author', 'receiver@gmail.com'))
+TOADDR  = 'recipient@gmail.com'
+MSG['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
+MSG['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
 USERNAME = 'authorUsername'
 PASSWORD = 'authorPassword'
-
 
 if sys.version[0] == '2':
     str = type(u'text')
     # use `bytes` for bytestrings
+
+def cleanString(stringToClean=""):
+    stringToClean = ''.join([x for x in stringToClean if ord(x) < 128])
+    return stringToClean
 
 def sha1(path, chunk_size):
     digest = hashlib.sha1()
@@ -463,6 +466,7 @@ class Bitrot(object):
             current_path = current_path[:half_mps] + '...' + current_path[-half_mps:]
         else:
             # pad out with spaces, otherwise previous filenames won't be erased
+            current_path = cleanString(current_path)
             current_path += ' ' * (max_path_size - len(current_path))
             
         sys.stdout.write(size_fmt + ' ' + current_path)
@@ -536,8 +540,7 @@ class Bitrot(object):
                 for path in new_paths:
                     print(' ', path.decode(FSENCODING))
                     if (self.log):
-                        writeToLog('\n ')
-                        writeToLog(path.decode(FSENCODING))
+                        writeToLog('\n {}'.format(path.decode(FSENCODING)))
             if updated_paths:
                 if (len(updated_paths) == 1):
                     print('1 entry updated:')
@@ -552,8 +555,7 @@ class Bitrot(object):
                 for path in updated_paths:
                     print(' ', path.decode(FSENCODING))
                     if (self.log):
-                        writeToLog('\n ')
-                        writeToLog(path.decode(FSENCODING))
+                        writeToLog('\n {}'.format(path.decode(FSENCODING)))
 
             if renamed_paths:
                 if (len(renamed_paths) == 1):
@@ -660,6 +662,8 @@ def stable_sum(bitrot_db=None):
 
 def writeToLog(stringToWrite=""):
     log_path = get_path(ext=b'log')
+    #stringToWrite = re.sub(r'[\\/*?:"<>|]',"",stringToWrite)
+    stringToWrite = cleanString(stringToWrite)
     with open(log_path, 'a') as logFile:
         logFile.write(stringToWrite)
         logFile.close()
@@ -774,12 +778,6 @@ def run_from_command_line():
              'of hashes of all the entries in the database. No timestamps '
              'are used in calculation.')
     parser.add_argument(
-        '-v', '--verbose', action='store_true',
-        help='list new, updated and missing entries')
-    parser.add_argument(
-        '-t', '--test', action='store_true',
-        help='just test against an existing database, don\'t update anything')
-    parser.add_argument(
         '--version', action='version',
         version='%(prog)s {}.{}.{}'.format(*VERSION))
     parser.add_argument(
@@ -796,6 +794,12 @@ def run_from_command_line():
     parser.add_argument(
         '-f', '--file-list', default='',
         help='only read the files listed in this file (use - for stdin)')
+    parser.add_argument(
+        '-t', '--test', action='store_true',
+        help='just test against an existing database, don\'t update anything')
+    parser.add_argument(
+        '-v', '--verbose', action='store_true',
+        help='list new, updated and missing entries')
     parser.add_argument(
         '-x', '--exclude-list', default='',
         help="don't read the files listed in this file - wildcards are allowed")
