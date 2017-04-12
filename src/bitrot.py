@@ -50,7 +50,7 @@ DOT_THRESHOLD = 200
 VERSION = (0, 9, 2)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
-DEFAULT_HASH_FUNCTION = "SHA1"
+DEFAULT_HASH_FUNCTION = "SHA512"
 
 if sys.version[0] == '2':
     str = type(u'text')
@@ -162,6 +162,7 @@ def list_existing_paths(directory, expected=(), ignored=(),
                 p_uni = p.decode(FSENCODING)
             except UnicodeDecodeError:
                 binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
+                warnings.append(p)
                 binary_stderr.write(b"Warning: cannot decode file name: ")
                 binary_stderr.write(p)
                 binary_stderr.write(b"\n")
@@ -189,9 +190,6 @@ def list_existing_paths(directory, expected=(), ignored=(),
                     continue
                 paths.add(p)
                 total_size += st.st_size
-
-    #just adds an aesthetic spacer.
-    print()
 
     return paths, total_size
 
@@ -250,6 +248,7 @@ class Bitrot(object):
         updated_paths = []
         renamed_paths = []
         errors = []
+        warnings = []
         current_size = 0
         missing_paths = self.select_all_paths(cur)
         hashes = self.select_all_hashes(cur)
@@ -276,6 +275,7 @@ class Bitrot(object):
                     # The file disappeared between listing existing paths and
                     # this run or is (temporarily?) locked with different
                     # permissions. We'll just skip it for now.
+                    warnings.append(p)
                     print(
                         '\rWarning: `{}` is currently unavailable for '
                         'reading: {}'.format(
@@ -300,6 +300,7 @@ class Bitrot(object):
             try:
                 new_hash = hash(p, self.chunk_size,self.hashing_function)
             except (IOError, OSError) as e:
+                warnings.append(p)
                 print(
                     '\rWarning: cannot compute hash of {} [{}]'.format(
                         #p, errno.errorcode[e.args[0]],
@@ -355,7 +356,7 @@ class Bitrot(object):
                 if (self.log):
                     writeToLog(
                         '\n\nError: {} mismatch for {}\nExpected: {}\nGot:      {}'
-                        '\nLast good hash checked on {}'.format(
+                        '\nLast good hash checked on {}\n'.format(
                         #p, stored_hash, new_hash, stored_ts
                         hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))
 
@@ -400,6 +401,7 @@ class Bitrot(object):
                 total_size,
                 all_count,
                 len(errors),
+                len(warnings),
                 new_paths,
                 updated_paths,
                 renamed_paths,
@@ -442,14 +444,28 @@ class Bitrot(object):
                 if (self.log):
                      writeToLog('\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
 
+        if warnings:
+            if len(warnings) == 1:
+                print('Warning: there was 1 warning found.')
+                if (self.log):
+                    writeToLog('\nThere was 1 warning found.')
+            else:
+                print('Warning: there were {} warnings found.'.format(len(warnings)))
+                if (self.log):
+                    writeToLog('\nThere were {} warnings found.'.format(len(warnings)))
+
         if errors:
             if len(errors) == 1:
+                if (self.log):
+                    writeToLog('\nThere was 1 error found.')
                 raise BitrotException(
                     1, 'There was 1 error found.',
                 )
             else:
+                if (self.log):
+                    writeToLog('\nthere were {} errors found.'.format(len(errors)))
                 raise BitrotException(
-                    1, 'There were {} errors found.'.format(len(errors)), errors,
+                    1, 'there were {} errors found.'.format(len(errors)), errors,
                 )
 
 
@@ -501,20 +517,27 @@ class Bitrot(object):
 
 
     def report_done(
-        self, total_size, all_count, error_count, new_paths, updated_paths,
+        self, total_size, all_count, error_count, warning_count, new_paths, updated_paths,
         renamed_paths, missing_paths):
         if (error_count == 1):
-            print('\rFinished. {:.2f} MiB of data read. 1 error found.'
-                ''.format(total_size/1024/1024))
+            print('\rFinished. {:.2f} MiB of data read. 1 error found. '.format(total_size/1024/1024),end="")
             if (self.log):
-                writeToLog('\n\nFinished. {:.2f} MiB of data read. 1 error found.'
-                ''.format(total_size/1024/1024))
+                writeToLog('\n\nFinished. {:.2f} MiB of data read. '.format(total_size/1024/1024))
         else:
-            print('\rFinished. {:.2f} MiB of data read. {} errors found.'
-                ''.format(total_size/1024/1024, error_count))
+            print('\rFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size/1024/1024, error_count),end="")
             if (self.log):
-                writeToLog('\n\nFinished. {:.2f} MiB of data read. {} errors found.'
-                ''.format(total_size/1024/1024, error_count))
+                writeToLog('\n\nFinished. {:.2f} MiB of data read. {} errors found.'.format(total_size/1024/1024, error_count))
+
+        if (warning_count == 1):
+            print('1 warning found.')
+            if (self.log):
+                writeToLog('1 warning found')
+        else:
+            print('{} warnings found.'.format(warning_count))
+            if (self.log):
+                writeToLog('{} warnings found.'.format(warning_count))
+
+
         if self.verbosity == 1:
             if (all_count == 1):
                 print(
@@ -628,9 +651,9 @@ class Bitrot(object):
             if not any((new_paths, updated_paths, missing_paths)):
                 print()
         if self.test and self.verbosity:
-            print('Warning: database file not updated on disk (test mode).')
+            print('Database file not updated on disk (test mode).')
             if (self.log):
-                writeToLog('Warning: database file not updated on disk (test mode).')
+                writeToLog('Database file not updated on disk (test mode).')
 
     def handle_unknown_path(self, cur, new_path, new_mtime, new_hash, paths, hashes):
         """Either add a new entry to the database or update the existing entry
@@ -920,7 +943,7 @@ def run_from_command_line():
                     hashing_function = args.hashing_function
                     print('Using {} for hashing function'.format(args.hashing_function))   
                     if (args.log):
-                       writeToLog('Using {} for hashing function'.format(args.hashing_function))
+                       writeToLog('\nUsing {} for hashing function'.format(args.hashing_function))
                 else:
                     print("Invalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
                     if (args.log):
