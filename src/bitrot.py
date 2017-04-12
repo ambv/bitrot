@@ -386,39 +386,41 @@ class Bitrot(object):
 
         update_sha512_integrity(verbosity=self.verbosity, log=self.log)
 
-        elapsedTime = (time.clock() - self.startTime)
-        
-        if (elapsedTime > 3600):
-            elapsedTime /= 3600
-            if ((int)(elapsedTime) == 1):
-                print('Time elapsed: 1 hour.')
-                if (self.log):
-                    writeToLog('\nTime elapsed: 1 hour.')
-            else:
-                print('Time elapsed: {:.1f} hours.'.format(elapsedTime))
-                if (self.log):
-                    writeToLog('\nTime elapsed: {:.1f} hours.'.format(elapsedTime))
 
-        elif (elapsedTime > 60):
-            elapsedTime /= 60
-            if ((int)(elapsedTime) == 1):
-                print('Time elapsed: 1 minute.')
-                if (self.log):
-                    writeToLog('\nTime elapsed: 1 minute.')
-            else:
-                print('Time elapsed: {:.0f} minutes.'.format(elapsedTime))
-                if (self.log):
-                    writeToLog('\nTime elapsed: {:.0f} minutes.'.format(elapsedTime))
+        if self.verbosity:
+            elapsedTime = (time.clock() - self.startTime)
+            
+            if (elapsedTime > 3600):
+                elapsedTime /= 3600
+                if ((int)(elapsedTime) == 1):
+                    print('Time elapsed: 1 hour.')
+                    if (self.log):
+                        writeToLog('\nTime elapsed: 1 hour.')
+                else:
+                    print('Time elapsed: {:.1f} hours.'.format(elapsedTime))
+                    if (self.log):
+                        writeToLog('\nTime elapsed: {:.1f} hours.'.format(elapsedTime))
 
-        else:
-            if ((int)(elapsedTime) == 1):
-                print('Time elapsed: 1 second.')
-                if (self.log):
-                    writeToLog('\nTime elapsed: 1 second.')
+            elif (elapsedTime > 60):
+                elapsedTime /= 60
+                if ((int)(elapsedTime) == 1):
+                    print('Time elapsed: 1 minute.')
+                    if (self.log):
+                        writeToLog('\nTime elapsed: 1 minute.')
+                else:
+                    print('Time elapsed: {:.0f} minutes.'.format(elapsedTime))
+                    if (self.log):
+                        writeToLog('\nTime elapsed: {:.0f} minutes.'.format(elapsedTime))
+
             else:
-                print('Time elapsed: {:.0f} seconds.'.format(elapsedTime))
-                if (self.log):
-                     writeToLog('\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
+                if ((int)(elapsedTime) == 1):
+                    print('Time elapsed: 1 second.')
+                    if (self.log):
+                        writeToLog('\nTime elapsed: 1 second.')
+                else:
+                    print('Time elapsed: {:.0f} seconds.'.format(elapsedTime))
+                    if (self.log):
+                         writeToLog('\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
 
         if warnings:
             if len(warnings) == 1:
@@ -550,7 +552,6 @@ class Bitrot(object):
                 if (self.log):
                     writeToLog('\n{} entries in the database.'.format(all_count))
 
-
             if new_paths:
                 if (len(new_paths) == 1):
                     print('\n1 new entry:')
@@ -566,6 +567,7 @@ class Bitrot(object):
                     print(' ', path.decode(FSENCODING))
                     if (self.log):
                         writeToLog('\n {}'.format(path.decode(FSENCODING)))
+
             if updated_paths:
                 if (len(updated_paths) == 1):
                     print('1 entry updated:')
@@ -592,7 +594,6 @@ class Bitrot(object):
                     if (self.log):
                         writeToLog('\n{} entries renamed:'.format(len(renamed_paths)))
 
-
                 renamed_paths.sort()
                 for path in renamed_paths:
                     print(
@@ -606,7 +607,6 @@ class Bitrot(object):
                     if (self.log):
                         writeToLog('\n from {} to {}'.format(path[0],path[1]))
                     
-
             if missing_paths:
                 if (len(missing_paths) == 1):
                     print('1 entry missing:')
@@ -616,7 +616,6 @@ class Bitrot(object):
                     print('{} entries missing:'.format(len(missing_paths)))
                     if (self.log):
                         writeToLog('\n{} entries missing:'.format(len(missing_paths)))
-
 
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
@@ -707,43 +706,40 @@ def check_sha512_integrity(verbosity=1, log=1):
         digest.update(f.read())
     new_sha512 = digest.hexdigest().encode('ascii')
     if new_sha512 != old_sha512:
-        if verbosity:
-            if len(old_sha512) == 128:
-                print(
-                    "\nError: SHA512 of the file is different, bitrot.db might "
-                    "be corrupt.",
-                )
-                if (log):
-                    writeToLog(
-                    "\nError: SHA512 of the file is different, bitrot.db might "
-                    "be corrupt.",
-                )
-            else:
-                print(
-                    "\nError: SHA512 of the file is different but bitrot.sha512 "
-                    "has a suspicious length. It might be corrupt.",
-                )
-                if (log):
-                    writeToLog(
-                    "\nError: SHA512 of the file is different but bitrot.sha512 "
-                    "has a suspicious length. It might be corrupt.",
-                )
+        if len(old_sha512) == 128:
             print(
-                "If you'd like to continue anyway, delete the .bitrot.sha512 "
-                "file and try again.",
-                file=sys.stderr,
+                "\nError: SHA512 of the file is different, bitrot.db might "
+                "be corrupt.",
             )
             if (log):
                 writeToLog(
-                "\nIf you'd like to continue anyway, delete the .bitrot.sha512 "
-                "file and try again.")
-        raise BitrotException(
-            3, 'bitrot.db integrity check failed, cannot continue.',
+                "\nError: SHA512 of the file is different, bitrot.db might "
+                "be corrupt.",
+            )
+        else:
+            print(
+                "\nError: SHA512 of the file is different but bitrot.sha512 "
+                "has a suspicious length. It might be corrupt.",
+            )
+            if (log):
+                writeToLog(
+                "\nError: SHA512 of the file is different but bitrot.sha512 "
+                "has a suspicious length. It might be corrupt.",
+            )
+        print(
+            "If you'd like to continue anyway, delete the .bitrot.sha512 "
+            "file and try again.",
+            file=sys.stderr,
         )
         if (log):
             writeToLog(
-            "If you'd like to continue anyway, delete the .bitrot.sha512 "
-            "file and try again.")
+            "\nIf you'd like to continue anyway, delete the .bitrot.sha512 file and try again.")
+        if (log):
+            writeToLog("\nbitrot.db integrity check failed, cannot continue.")
+
+        raise BitrotException(
+            3, 'bitrot.db integrity check failed, cannot continue.',
+        )
 
     if verbosity:
         print('ok.')
@@ -854,17 +850,18 @@ def run_from_command_line():
             print(str(e).encode('utf8'), file=sys.stderr)
     else:
         verbosity = 1
-        if (args.log):
-            log_path = get_path(ext=b'log')
-            if os.path.exists(log_path):
-                writeToLog('\n')
-                writeToLog('======================================================\n')
-            writeToLog('Log started at ')
-            writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         if args.quiet:
             verbosity = 0
         elif args.verbose:
             verbosity = 2
+        if (args.log):
+            log_path = get_path(ext=b'log')
+            if verbosity:
+                if os.path.exists(log_path):
+                    writeToLog('\n')
+                    writeToLog('======================================================\n')
+                writeToLog('Log started at ')
+                writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         if args.no_time:
             no_time = 1
             args.test = 1
@@ -872,7 +869,7 @@ def run_from_command_line():
             if verbosity:
                 print('Using stdin for file list')
                 if (args.log):
-                   writeToLog('Using stdin for file list') 
+                   writeToLog('\nUsing stdin for file list') 
             file_list = sys.stdin
         elif args.file_list:
             if verbosity:
