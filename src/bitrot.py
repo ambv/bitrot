@@ -520,11 +520,11 @@ class Bitrot(object):
         self, total_size, all_count, error_count, warning_count, new_paths, updated_paths,
         renamed_paths, missing_paths):
         if (error_count == 1):
-            print('\rFinished. {:.2f} MiB of data read. 1 error found. '.format(total_size/1024/1024),end="")
+            print('\r\nFinished. {:.2f} MiB of data read. 1 error found. '.format(total_size/1024/1024),end="")
             if (self.log):
                 writeToLog('\n\nFinished. {:.2f} MiB of data read. '.format(total_size/1024/1024))
         else:
-            print('\rFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size/1024/1024, error_count),end="")
+            print('\r\nFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size/1024/1024, error_count),end="")
             if (self.log):
                 writeToLog('\n\nFinished. {:.2f} MiB of data read. {} errors found.'.format(total_size/1024/1024, error_count))
 
