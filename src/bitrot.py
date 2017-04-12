@@ -43,7 +43,7 @@ import smtplib
 import email.utils
 from email.mime.text import MIMEText
 from datetime import timedelta
-import re
+#import re
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 200
@@ -83,6 +83,8 @@ def cleanString(stringToClean=""):
     return stringToClean
 
 def hash(path, chunk_size,hashing_function=""):
+    if (not isValidHashingFunction(hashing_function)):
+        hashing_function = DEFAULT_HASH_FUNCTION
     if   (hashing_function.upper() == "MD5"):
         digest=hashlib.md5()
     elif (hashing_function.upper() == "SHA1"):
@@ -96,8 +98,8 @@ def hash(path, chunk_size,hashing_function=""):
     elif (hashing_function.upper() == "SHA512"):
         digest=hashlib.sha512() 
     else:
-        hash(path,chunk_size,DEFAULT_HASH_FUNCTION)
-        return
+        writeToLog('\nInvalid hash function detected.')
+        raise Exception('Invalid hash function detected.')
 
     with open(path, 'rb') as f:
         d = f.read(chunk_size)
@@ -359,35 +361,9 @@ class Bitrot(object):
                         '\nLast good hash checked on {}\n'.format(
                         #p, stored_hash, new_hash, stored_ts
                         hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))
-
-                elapsedTime = (time.clock() - self.startTime)
-
                 if (self.email):
-                    if (elapsedTime > 3600):
-                        elapsedTime /= 3600
-                        if ((int)(elapsedTime) == 1):
-                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 hour'.format(p.decode(FSENCODING),
-                            stored_hash,new_hash,stored_ts))
-                        else:
-                           sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} hours'.format(p.decode(FSENCODING),
-                            stored_hash,new_hash,stored_ts,elapsedTime))
-
-                    elif (elapsedTime > 60):
-                        elapsedTime /= 60
-                        if ((int)(elapsedTime) == 1):
-                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 minute'.format(p.decode(FSENCODING),
-                            stored_hash,new_hash,stored_ts))
-                        else:
-                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} minutes'.format(p.decode(FSENCODING),
-                            stored_hash,new_hash,stored_ts,elapsedTime))
-
-                    else:
-                        if ((int)(elapsedTime) == 1):
-                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed 1 second'.format(p.decode(FSENCODING),
-                            stored_hash,new_hash,stored_ts))
-                        else:
-                            sendMail('Error SHA1 mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}\nTime elapsed {:.1f} seconds'.format(p.decode(FSENCODING),
-                            stored_hash,new_hash,stored_ts,elapsedTime))
+                        sendMail('Error {} mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}'.format(hashingFunctionString,p.decode(FSENCODING),
+                        stored_hash,new_hash,stored_ts))
                     
         for path in missing_paths:
             cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
@@ -851,23 +827,24 @@ def run_from_command_line():
         '-t', '--test', action='store_true',
         help='just test against an existing database, don\'t update anything')
     parser.add_argument(
-        '-v', '--verbose', action='store_true',
-        help='list new, updated and missing entries')
+        '-a', '--hashing-function', default='',
+        help='Doesnt compare dates, only hashes. Also enables test-only mode')
     parser.add_argument(
         '-x', '--exclude-list', default='',
         help="don't read the files listed in this file - wildcards are allowed")
+    parser.add_argument(
+        '-v', '--verbose', action='store_true',
+        help='list new, updated and missing entries')
+    parser.add_argument(
+        '-n', '--no-time', action='store_true',
+        help='Doesnt compare dates, only hashes. Also enables test-only mode')
     parser.add_argument(
         '-e', '--email', action='store_true',
         help='email file integirty errors')
     parser.add_argument(
         '-g', '--log', action='store_true',
         help='logs activity')
-    parser.add_argument(
-        '-n', '--no-time', action='store_true',
-        help='Doesnt compare dates, only hashes. Also enables test-only mode')
-    parser.add_argument(
-        '-a', '--hashing-function', default='',
-        help='Doesnt compare dates, only hashes. Also enables test-only mode')
+
     
     args = parser.parse_args()
     if args.sum:
