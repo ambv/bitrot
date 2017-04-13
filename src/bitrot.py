@@ -370,7 +370,7 @@ class Bitrot(object):
                 )
                 if (self.log):
                     writeToLog(stringToWrite=
-                        '\n\nError: {} mismatch for {}\nExpected: {}\nGot:      {}'
+                        '\n\nError: {} mismatch for {}\nExpected: {}\nGot:          {}'
                         '\nLast good hash checked on {}\n'.format(
                         #p, stored_hash, new_hash, stored_ts
                         hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))
@@ -849,12 +849,11 @@ def run_from_command_line():
             verbosity = 2
         if (args.log):
             log_path = get_path(ext=b'log')
-            if verbosity:
-                if os.path.exists(log_path):
-                    writeToLog(stringToWrite='\n')
-                    writeToLog(stringToWrite='======================================================\n')
-                writeToLog(stringToWrite='Log started at ')
-                writeToLog(stringToWrite=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+            if os.path.exists(log_path):
+                writeToLog(stringToWrite='\n')
+                writeToLog(stringToWrite='======================================================\n')
+            writeToLog(stringToWrite='Log started at ')
+            writeToLog(stringToWrite=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         if args.no_time:
             no_time = 1
             args.test = 1
