@@ -66,7 +66,7 @@ def get_sqlite3_cursor(path, copy=False):
             raise ValueError("Error: bitrot database at {} does not exist."
                              "".format(path))
             if (self.log):
-                writeToLog(stringToWrite="Error: bitrot database at {} does not exist.\n"
+                writeToLog(stringToWrite="\nError: bitrot database at {} does not exist."
                     "".format(path))
         db_copy = tempfile.NamedTemporaryFile(prefix='bitrot_', suffix='.db',
                                               delete=False)
@@ -330,39 +330,7 @@ class Bitrot(object):
         update_sha512_integrity(verbosity=self.verbosity, log=self.log)
 
         if self.verbosity:
-            elapsedTime = (time.clock() - self.startTime)
-            
-            if (elapsedTime > 3600):
-                elapsedTime /= 3600
-                if ((int)(elapsedTime) == 1):
-                    print('Time elapsed: 1 hour.')
-                    if (self.log):
-                        writeToLog(stringToWrite='\nTime elapsed: 1 hour.')
-                else:
-                    print('Time elapsed: {:.1f} hours.'.format(elapsedTime))
-                    if (self.log):
-                        writeToLog(stringToWrite='\nTime elapsed: {:.1f} hours.'.format(elapsedTime))
-
-            elif (elapsedTime > 60):
-                elapsedTime /= 60
-                if ((int)(elapsedTime) == 1):
-                    print('Time elapsed: 1 minute.')
-                    if (self.log):
-                        writeToLog(stringToWrite='\nTime elapsed: 1 minute.')
-                else:
-                    print('Time elapsed: {:.0f} minutes.'.format(elapsedTime))
-                    if (self.log):
-                        writeToLog(stringToWrite='\nTime elapsed: {:.0f} minutes.'.format(elapsedTime))
-
-            else:
-                if ((int)(elapsedTime) == 1):
-                    print('Time elapsed: 1 second.')
-                    if (self.log):
-                        writeToLog(stringToWrite='\nTime elapsed: 1 second.')
-                else:
-                    print('Time elapsed: {:.0f} seconds.'.format(elapsedTime))
-                    if (self.log):
-                         writeToLog(stringToWrite='\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
+            recordTimeElapsed(startTime = self.startTime, log = self.log)
 
         if warnings:
             if len(warnings) == 1:
@@ -617,6 +585,10 @@ def check_sha512_integrity(verbosity=1, log=1):
     if not os.path.exists(sha512_path):
         return
 
+    bitrot_db = get_path()
+    if not os.path.exists(bitrot_db):
+        return
+
     if verbosity:
         print('Checking bitrot.db integrity... ', end='')
         if (log):
@@ -624,7 +596,7 @@ def check_sha512_integrity(verbosity=1, log=1):
         sys.stdout.flush()
     with open(sha512_path, 'rb') as f:
         old_sha512 = f.read().strip()
-    bitrot_db = get_path()
+    
     digest = hashlib.sha512()
     with open(bitrot_db, 'rb') as f:
         digest.update(f.read())
@@ -632,22 +604,22 @@ def check_sha512_integrity(verbosity=1, log=1):
     if new_sha512 != old_sha512:
         if len(old_sha512) == 128:
             print(
-                "\nError: SHA512 of the file is different, bitrot.db might "
+                "\nError: SHA512 of the database file is different, bitrot.db might "
                 "be corrupt.",
             )
             if (log):
                 writeToLog(stringToWrite=
-                "\nError: SHA512 of the file is different, bitrot.db might "
+                "\nError: SHA512 of the database file is different, bitrot.db might "
                 "be corrupt.",
             )
         else:
             print(
-                "\nError: SHA512 of the file is different but bitrot.sha512 "
+                "\nError: SHA512 of the database file is different, but bitrot.sha512 "
                 "has a suspicious length. It might be corrupt.",
             )
             if (log):
                 writeToLog(stringToWrite=
-                "\nError: SHA512 of the file is different but bitrot.sha512 "
+                "\nError: SHA512 of the database file is different, but bitrot.sha512 "
                 "has a suspicious length. It might be corrupt.",
             )
         print(
@@ -693,6 +665,40 @@ def update_sha512_integrity(verbosity=1, log=1):
             print('done.')
             if (log):
                 writeToLog(stringToWrite='done.')
+
+def recordTimeElapsed(startTime=0, log=1):
+    elapsedTime = (time.clock() - startTime)  
+    if (elapsedTime > 3600):
+        elapsedTime /= 3600
+        if ((int)(elapsedTime) == 1):
+            print('Time elapsed: 1 hour.')
+            if (log):
+                writeToLog(stringToWrite='\nTime elapsed: 1 hour.')
+        else:
+            print('Time elapsed: {:.1f} hours.'.format(elapsedTime))
+            if (log):
+                writeToLog(stringToWrite='\nTime elapsed: {:.1f} hours.'.format(elapsedTime))
+
+    elif (elapsedTime > 60):
+        elapsedTime /= 60
+        if ((int)(elapsedTime) == 1):
+            print('Time elapsed: 1 minute.')
+            if (log):
+                writeToLog(stringToWrite='\nTime elapsed: 1 minute.')
+        else:
+            print('Time elapsed: {:.0f} minutes.'.format(elapsedTime))
+            if (log):
+                writeToLog(stringToWrite='\nTime elapsed: {:.0f} minutes.'.format(elapsedTime))
+
+    else:
+        if ((int)(elapsedTime) == 1):
+            print('Time elapsed: 1 second.')
+            if (log):
+                writeToLog(stringToWrite='\nTime elapsed: 1 second.')
+        else:
+            print('Time elapsed: {:.0f} seconds.'.format(elapsedTime))
+            if (log):
+                 writeToLog(stringToWrite='\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
 
 def isValidHashingFunction(stringToValidate=""):
     if  (stringToValidate.upper() == "SHA1"
