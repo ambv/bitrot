@@ -849,11 +849,12 @@ def run_from_command_line():
             verbosity = 2
         if (args.log):
             log_path = get_path(ext=b'log')
-            if os.path.exists(log_path):
-                writeToLog(stringToWrite='\n')
-                writeToLog(stringToWrite='======================================================\n')
-            writeToLog(stringToWrite='Log started at ')
-            writeToLog(stringToWrite=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+            if (verbosity):
+                if os.path.exists(log_path):
+                    writeToLog(stringToWrite='\n')
+                    writeToLog(stringToWrite='======================================================\n')
+                writeToLog(stringToWrite='Log started at ')
+                writeToLog(stringToWrite=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         if args.no_time:
             no_time = 1
             args.test = 1
