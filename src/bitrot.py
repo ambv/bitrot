@@ -371,7 +371,7 @@ class Bitrot(object):
                 if (self.log):
                     writeToLog(stringToWrite=
                         '\n\nError: {} mismatch for {}\nExpected: {}\nGot:          {}'
-                        '\nLast good hash checked on {}\n'.format(
+                        '\nLast good hash checked on {}'.format(
                         #p, stored_hash, new_hash, stored_ts
                         hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))
                 if (self.email):
