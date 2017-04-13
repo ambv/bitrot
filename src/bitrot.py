@@ -56,73 +56,6 @@ if sys.version[0] == '2':
     str = type(u'text')
     # use `bytes` for bytestrings
 
-def writeToLog(stringToWrite=""):
-    log_path = get_path(ext=b'log')
-    stringToWrite = cleanString(stringToWrite)
-    with open(log_path, 'a') as logFile:
-        logFile.write(stringToWrite)
-        logFile.close()
-
-def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
-    msg = MIMEText(stringToSend)
-
-    FROMADDR = 'author@gmail.com'
-    TOADDR  = 'recipient@gmail.com'
-    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
-    USERNAME = 'authorUsername'
-    PASSWORD = 'authorPassword'
-
-    try:
-        msg['Subject'] = subject
-        # The actual mail send
-        server = smtplib.SMTP('smtp.gmail.com:587')
-        server.starttls()
-        server.login(USERNAME,PASSWORD)
-        server.sendmail(FROMADDR, TOADDR, msg.as_string())
-        server.quit()
-    except Exception as err:
-        print('Email sending error:', err)
-        if (log):
-            writeToLog(stringToWrite='\nEmail sending error: {}'.format(err))
-
-
-        
-
-
-def cleanString(stringToClean=""):
-    #stringToClean=re.sub(r'[\\/*?:"<>|]',"",stringToClean)
-    stringToClean = ''.join([x for x in stringToClean if ord(x) < 128])
-    return stringToClean
-
-def hash(path, chunk_size,hashing_function="",log=1):
-    if (not isValidHashingFunction(stringToValidate=hashing_function)):
-        hashing_function = DEFAULT_HASH_FUNCTION
-    if   (hashing_function.upper() == "MD5"):
-        digest=hashlib.md5()
-    elif (hashing_function.upper() == "SHA1"):
-        digest=hashlib.sha1()
-    elif (hashing_function.upper() == "SHA224"):
-        digest=hashlib.sha224()
-    elif (hashing_function.upper() == "SHA384"):
-        digest=hashlib.sha384()
-    elif (hashing_function.upper() == "SHA256"):
-        digest=hashlib.sha256()
-    elif (hashing_function.upper() == "SHA512"):
-        digest=hashlib.sha512() 
-    else:
-        if (log):
-            writeToLog(stringToWrite='\nInvalid hash function detected.')
-        raise Exception('Invalid hash function detected.')
-
-    with open(path, 'rb') as f:
-        d = f.read(chunk_size)
-        while d:
-            digest.update(d)
-            d = f.read(chunk_size)
-    return digest.hexdigest()
-
-
 def ts():
     return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S%z')
 
@@ -156,7 +89,6 @@ def get_sqlite3_cursor(path, copy=False):
         cur.execute('CREATE INDEX bitrot_hash_idx ON bitrot (hash)')
     atexit.register(conn.commit)
     return conn
-
 
 def list_existing_paths(directory, expected=(), ignored=(), 
                         verbosity=1, follow_links=False, log=1):
@@ -208,7 +140,6 @@ def list_existing_paths(directory, expected=(), ignored=(),
                 total_size += st.st_size
     paths.sort()
     return paths, total_size
-
 
 class BitrotException(Exception):
     pass
@@ -399,7 +330,6 @@ class Bitrot(object):
 
         update_sha512_integrity(verbosity=self.verbosity, log=self.log)
 
-
         if self.verbosity:
             elapsedTime = (time.clock() - self.startTime)
             
@@ -455,7 +385,6 @@ class Bitrot(object):
                     1, 'There were {} errors found.'.format(len(errors)), errors,
                 )
 
-
     def select_all_paths(self, cur):
         result = set()
         cur.execute('SELECT path FROM bitrot')
@@ -496,14 +425,17 @@ class Bitrot(object):
     def report_done(
         self, total_size, all_count, error_count, warning_count, new_paths, updated_paths,
         renamed_paths, missing_paths):
+
+        sizeUnits , total_size = calculateUnits(total_size=total_size)
+
         if (error_count == 1):
-            print('\rFinished. {:.2f} MiB of data read. 1 error found. '.format(total_size/1024/1024),end="")
-            if (self.log):
-                writeToLog(stringToWrite='\n\nFinished. {:.2f} MiB of data read. '.format(total_size/1024/1024))
+                print('\rFinished. {:.2f} {} of data read. 1 error found. '.format(total_size,sizeUnits),end="")
+                if (self.log):
+                    writeToLog(stringToWrite='\n\nFinished. {:.2f} {} of data read. '.format(total_size,sizeUnits))
         else:
-            print('\rFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size/1024/1024, error_count),end="")
+            print('\rFinished. {:.2f} {} of data read. {} errors found. '.format(total_size, sizeUnits, error_count),end="")
             if (self.log):
-                writeToLog(stringToWrite='\n\nFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size/1024/1024, error_count))
+                writeToLog(stringToWrite='\n\nFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size, error_count, sizeUnits))
 
         if (warning_count == 1):
             print('1 warning found.')
@@ -513,7 +445,6 @@ class Bitrot(object):
             print('{} warnings found.'.format(warning_count))
             if (self.log):
                 writeToLog(stringToWrite='{} warnings found.'.format(warning_count))
-
 
         if self.verbosity == 1:
             if (all_count == 1):
@@ -739,7 +670,6 @@ def check_sha512_integrity(verbosity=1, log=1):
         if (log):
             writeToLog(stringToWrite='ok.')
 
-
 def update_sha512_integrity(verbosity=1, log=1):
     old_sha512 = 0
     sha512_path = get_path(ext=b'sha512')
@@ -775,6 +705,98 @@ def isValidHashingFunction(stringToValidate=""):
         return True
     else:
         return False
+
+def calculateUnits(total_size = 0):
+        if (total_size/1024/1024/1024/1024/1024/1024/1024/1024 >= 1):
+            sizeUnits = "YB"
+            total_size = total_size/1024/1024/1024/1024/1024/1024/1024/1024
+        elif (total_size/1024/1024/1024/1024/1024/1024/1024 >= 1):
+            sizeUnits = "ZB"
+            total_size = total_size/1024/1024/1024/1024/1024/1024/1024
+        elif (total_size/1024/1024/1024/1024/1024/1024 >= 1):
+            sizeUnits = "EB"
+            total_size = total_size/1024/1024/1024/1024/1024/1024
+        elif (total_size/1024/1024/1024/1024/1024 >= 1):
+            sizeUnits = "PB"
+            total_size = total_size/1024/1024/1024/1024/1024
+        elif (total_size/1024/1024/1024/1024 >= 1):
+            sizeUnits = "TB"
+            total_size = total_size/1024/1024/1024/1024
+        elif (total_size/1024/1024/1024 >= 1):
+            sizeUnits = "GB"
+            total_size = total_size/1024/1024/1024
+        elif (total_size/1024/1024 >= 1):
+            sizeUnits = "MB"
+            total_size = total_size/1024/1024
+        elif (total_size/1024 >= 1):
+            sizeUnits = "KB"
+            total_size = total_size/1024
+        else:
+            sizeUnits = "B"
+            total_size = total_size
+        return sizeUnits, total_size
+
+def writeToLog(stringToWrite=""):
+    log_path = get_path(ext=b'log')
+    stringToWrite = cleanString(stringToWrite)
+    with open(log_path, 'a') as logFile:
+        logFile.write(stringToWrite)
+        logFile.close()
+
+def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
+    msg = MIMEText(stringToSend)
+
+    FROMADDR = 'author@gmail.com'
+    TOADDR  = 'recipient@gmail.com'
+    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
+    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
+    USERNAME = 'authorUsername'
+    PASSWORD = 'authorPassword'
+
+    try:
+        msg['Subject'] = subject
+        # The actual mail send
+        server = smtplib.SMTP('smtp.gmail.com:587')
+        server.starttls()
+        server.login(USERNAME,PASSWORD)
+        server.sendmail(FROMADDR, TOADDR, msg.as_string())
+        server.quit()
+    except Exception as err:
+        print('Email sending error:', err)
+        if (log):
+            writeToLog(stringToWrite='\nEmail sending error: {}'.format(err))
+
+def cleanString(stringToClean=""):
+    #stringToClean=re.sub(r'[\\/*?:"<>|]',"",stringToClean)
+    stringToClean = ''.join([x for x in stringToClean if ord(x) < 128])
+    return stringToClean
+
+def hash(path, chunk_size,hashing_function="",log=1):
+    if (not isValidHashingFunction(stringToValidate=hashing_function)):
+        hashing_function = DEFAULT_HASH_FUNCTION
+    if   (hashing_function.upper() == "MD5"):
+        digest=hashlib.md5()
+    elif (hashing_function.upper() == "SHA1"):
+        digest=hashlib.sha1()
+    elif (hashing_function.upper() == "SHA224"):
+        digest=hashlib.sha224()
+    elif (hashing_function.upper() == "SHA384"):
+        digest=hashlib.sha384()
+    elif (hashing_function.upper() == "SHA256"):
+        digest=hashlib.sha256()
+    elif (hashing_function.upper() == "SHA512"):
+        digest=hashlib.sha512() 
+    else:
+        if (log):
+            writeToLog(stringToWrite='\nInvalid hash function detected.')
+        raise Exception('Invalid hash function detected.')
+
+    with open(path, 'rb') as f:
+        d = f.read(chunk_size)
+        while d:
+            digest.update(d)
+            d = f.read(chunk_size)
+    return digest.hexdigest()
 
 def run_from_command_line():
     global FSENCODING
@@ -834,7 +856,6 @@ def run_from_command_line():
         '-g', '--log', action='store_true',
         help='logs activity')
 
-    
     args = parser.parse_args()
     if args.sum:
         try:
