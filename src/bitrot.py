@@ -63,7 +63,7 @@ def writeToLog(stringToWrite=""):
         logFile.write(stringToWrite)
         logFile.close()
 
-def sendMail(stringToSend="", log=1, verbosity=1):
+def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
     FROMADDR = 'author@gmail.com'
@@ -74,7 +74,7 @@ def sendMail(stringToSend="", log=1, verbosity=1):
     PASSWORD = 'authorPassword'
 
     try:
-        msg['Subject'] = 'FIM Error'
+        msg['Subject'] = subject
         # The actual mail send
         server = smtplib.SMTP('smtp.gmail.com:587')
         server.starttls()
@@ -376,7 +376,7 @@ class Bitrot(object):
                         hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))
                 if (self.email):
                         sendMail('Error {} mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}'.format(hashingFunctionString,p.decode(FSENCODING),
-                        stored_hash,new_hash,stored_ts),log=self.log,verbosity=self.verbosity)
+                        stored_hash,new_hash,stored_ts),log=self.log,verbosity=self.verbosity, subject="FIM Error")
                     
         for path in missing_paths:
             cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
