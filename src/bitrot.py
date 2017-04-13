@@ -334,11 +334,11 @@ class Bitrot(object):
 
         if warnings:
             if len(warnings) == 1:
-                print('Warning: there was 1 warning found.')
+                print('Warning: There was 1 warning found.')
                 if (self.log):
                     writeToLog(stringToWrite='\nWarning: There was 1 warning found.')
             else:
-                print('Warning: there were {} warnings found.'.format(len(warnings)))
+                print('Warning: There were {} warnings found.'.format(len(warnings)))
                 if (self.log):
                     writeToLog(stringToWrite='\nWarning: There were {} warnings found.'.format(len(warnings)))
 
@@ -769,7 +769,7 @@ def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     except Exception as err:
         print('Email sending error:', err)
         if (log):
-            writeToLog(stringToWrite='\nEmail sending error: {}'.format(err))
+            writeToLog(stringToWrite='\n\nEmail sending error: {}'.format(err))
 
 def cleanString(stringToClean=""):
     #stringToClean=re.sub(r'[\\/*?:"<>|]',"",stringToClean)
@@ -926,9 +926,11 @@ def run_from_command_line():
         if (args.hashing_function):
             #combined = '\t'.join(hashlib.algorithms_available)
             #if (args.hashing_function in combined):
+
             #word_to_check = args.hashing_function
             #wordlist = hashlib.algorithms_available
             #result = any(word_to_check in word for word in wordlist)
+
             #algorithms_available = hashlib.algorithms_available
             #search = args.hashing_function
             #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
