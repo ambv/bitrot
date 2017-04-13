@@ -932,15 +932,15 @@ def run_from_command_line():
             #algorithms_available = hashlib.algorithms_available
             #search = args.hashing_function
             #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
-                if (isValidHashingFunction(stringToValidate=args.hashing_function) == True):
-                    hashing_function = args.hashing_function
-                    print('Using {} for hashing function'.format(args.hashing_function))   
-                    if (args.log):
-                       writeToLog(stringToWrite='\nUsing {} for hashing function'.format(args.hashing_function))
-                else:
-                    print("Invalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
-                    if (args.log):
-                        writeToLog(stringToWrite="\nInvalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
+            if (isValidHashingFunction(stringToValidate=args.hashing_function) == True):
+                hashing_function = args.hashing_function
+                print('Using {} for hashing function'.format(args.hashing_function))   
+                if (args.log):
+                   writeToLog(stringToWrite='\nUsing {} for hashing function'.format(args.hashing_function))
+            else:
+                print("Invalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
+                if (args.log):
+                    writeToLog(stringToWrite="\nInvalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
         else:
             hashing_function = None
         try:
