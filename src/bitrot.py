@@ -38,8 +38,8 @@ import stat
 import sys
 import tempfile
 import time
-from fnmatch import fnmatch
 import smtplib
+from fnmatch import fnmatch
 import email.utils
 from email.mime.text import MIMEText
 from datetime import timedelta
@@ -56,25 +56,38 @@ if sys.version[0] == '2':
     str = type(u'text')
     # use `bytes` for bytestrings
 
-def sendMail(stringToSend=""):
+def writeToLog(stringToWrite=""):
+    log_path = get_path(ext=b'log')
+    stringToWrite = cleanString(stringToWrite)
+    with open(log_path, 'a') as logFile:
+        logFile.write(stringToWrite)
+        logFile.close()
+
+def sendMail(stringToSend="", log=1, verbosity=1):
     msg = MIMEText(stringToSend)
 
     FROMADDR = 'author@gmail.com'
     TOADDR  = 'recipient@gmail.com'
-    MSG['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-    MSG['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
+    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
+    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
     USERNAME = 'authorUsername'
     PASSWORD = 'authorPassword'
 
-    msg['Subject'] = 'FIM Error'
-    # The actual mail send
-    server = smtplib.SMTP('smtp.gmail.com:587')
-    server.starttls()
-    server.login(USERNAME,PASSWORD)
     try:
+        msg['Subject'] = 'FIM Error'
+        # The actual mail send
+        server = smtplib.SMTP('smtp.gmail.com:587')
+        server.starttls()
+        server.login(USERNAME,PASSWORD)
         server.sendmail(FROMADDR, TOADDR, msg.as_string())
-    finally:
         server.quit()
+    except Exception as err:
+        print('Email sending error:', err)
+        if (log):
+            writeToLog(stringToWrite='\nEmail sending error: {}'.format(err))
+
+
+        
 
 
 def cleanString(stringToClean=""):
@@ -82,8 +95,8 @@ def cleanString(stringToClean=""):
     stringToClean = ''.join([x for x in stringToClean if ord(x) < 128])
     return stringToClean
 
-def hash(path, chunk_size,hashing_function=""):
-    if (not isValidHashingFunction(hashing_function)):
+def hash(path, chunk_size,hashing_function="",log=1):
+    if (not isValidHashingFunction(stringToValidate=hashing_function)):
         hashing_function = DEFAULT_HASH_FUNCTION
     if   (hashing_function.upper() == "MD5"):
         digest=hashlib.md5()
@@ -98,7 +111,8 @@ def hash(path, chunk_size,hashing_function=""):
     elif (hashing_function.upper() == "SHA512"):
         digest=hashlib.sha512() 
     else:
-        writeToLog('\nInvalid hash function detected.')
+        if (log):
+            writeToLog(stringToWrite='\nInvalid hash function detected.')
         raise Exception('Invalid hash function detected.')
 
     with open(path, 'rb') as f:
@@ -120,7 +134,7 @@ def get_sqlite3_cursor(path, copy=False):
             raise ValueError("Error: bitrot database at {} does not exist."
                              "".format(path))
             if (self.log):
-                writeToLog("Error: bitrot database at {} does not exist.\n"
+                writeToLog(stringToWrite="Error: bitrot database at {} does not exist.\n"
                     "".format(path))
         db_copy = tempfile.NamedTemporaryFile(prefix='bitrot_', suffix='.db',
                                               delete=False)
@@ -165,11 +179,11 @@ def list_existing_paths(directory, expected=(), ignored=(),
             except UnicodeDecodeError:
                 binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
                 warnings.append(p)
-                binary_stderr.write(b"Warning: cannot decode file name: ")
+                binary_stderr.write(b"\rWarning: cannot decode file name: ")
                 binary_stderr.write(p)
                 binary_stderr.write(b"\n")
                 if (log):
-                    writeToLog("\nWarning: cannot decode file name: {}".format(p))
+                    writeToLog(stringToWrite="\nWarning: cannot decode file name: {}".format(p))
                 continue
 
             try:
@@ -186,8 +200,8 @@ def list_existing_paths(directory, expected=(), ignored=(),
                         #print('Ignoring file: {}'.format(p))
                         print('Ignoring file: {}'.format(p.decode(FSENCODING)))
                         if (log):
-                            #writeToLog("\nIgnoring file: {}".format(p))
-                            writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
+                            #writeToLog(stringToWrite="\nIgnoring file: {}".format(p))
+                            writeToLog(stringToWrite="\nIgnoring file: {}".format(p.decode(FSENCODING)))
 
                     continue
                 paths.append(p)
@@ -243,7 +257,7 @@ class Bitrot(object):
                 'No database exists so cannot test. Run the tool once first.',
             )
             if (self.log):
-                writeToLog("\nNo database exists so cannot test. Run the tool once first.")
+                writeToLog(stringToWrite="\nNo database exists so cannot test. Run the tool once first.")
 
         cur = conn.cursor()
         new_paths = []
@@ -286,8 +300,8 @@ class Bitrot(object):
                         file=sys.stderr,
                     )
                     if (self.log):
-                        #writeToLog('\nWarning: `{}` is currently unavailable for reading: {}'.format(p_uni, ex))
-                        writeToLog('\nWarning: `{}` is currently unavailable for reading: {}'.format(p.decode(FSENCODING), ex))
+                        #writeToLog(stringToWrite='\nWarning: `{}` is currently unavailable for reading: {}'.format(p_uni, ex))
+                        writeToLog(stringToWrite='\nWarning: `{}` is currently unavailable for reading: {}'.format(p.decode(FSENCODING), ex))
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
@@ -299,7 +313,7 @@ class Bitrot(object):
 
             missing_paths.discard(p_uni)
             try:
-                new_hash = hash(p, self.chunk_size,self.hashing_function)
+                new_hash = hash(p, self.chunk_size,self.hashing_function,log=self.log)
             except (IOError, OSError) as e:
                 warnings.append(p)
                 print(
@@ -310,7 +324,7 @@ class Bitrot(object):
                     file=sys.stderr,
                 )
                 if (self.log):
-                    writeToLog('\nWarning: cannot compute hash of {} [{}]'.format(
+                    writeToLog(stringToWrite='\n\nWarning: cannot compute hash of {} [{}]'.format(
                             #p, errno.errorcode[e.args[0]]))
                             p.decode(FSENCODING), errno.errorcode[e.args[0]]))
                 continue
@@ -341,7 +355,7 @@ class Bitrot(object):
             if stored_hash != new_hash:
                 errors.append(p)
 
-                if (isValidHashingFunction(self.hashing_function)):
+                if (isValidHashingFunction(stringToValidate=self.hashing_function)):
                     hashingFunctionString = self.hashing_function
                 else:
                     hashingFunctionString = DEFAULT_HASH_FUNCTION
@@ -355,14 +369,14 @@ class Bitrot(object):
                     file=sys.stderr,
                 )
                 if (self.log):
-                    writeToLog(
+                    writeToLog(stringToWrite=
                         '\n\nError: {} mismatch for {}\nExpected: {}\nGot:      {}'
                         '\nLast good hash checked on {}\n'.format(
                         #p, stored_hash, new_hash, stored_ts
                         hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))
                 if (self.email):
                         sendMail('Error {} mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}'.format(hashingFunctionString,p.decode(FSENCODING),
-                        stored_hash,new_hash,stored_ts))
+                        stored_hash,new_hash,stored_ts),log=self.log,verbosity=self.verbosity)
                     
         for path in missing_paths:
             cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
@@ -394,55 +408,51 @@ class Bitrot(object):
                 if ((int)(elapsedTime) == 1):
                     print('Time elapsed: 1 hour.')
                     if (self.log):
-                        writeToLog('\nTime elapsed: 1 hour.')
+                        writeToLog(stringToWrite='\nTime elapsed: 1 hour.')
                 else:
                     print('Time elapsed: {:.1f} hours.'.format(elapsedTime))
                     if (self.log):
-                        writeToLog('\nTime elapsed: {:.1f} hours.'.format(elapsedTime))
+                        writeToLog(stringToWrite='\nTime elapsed: {:.1f} hours.'.format(elapsedTime))
 
             elif (elapsedTime > 60):
                 elapsedTime /= 60
                 if ((int)(elapsedTime) == 1):
                     print('Time elapsed: 1 minute.')
                     if (self.log):
-                        writeToLog('\nTime elapsed: 1 minute.')
+                        writeToLog(stringToWrite='\nTime elapsed: 1 minute.')
                 else:
                     print('Time elapsed: {:.0f} minutes.'.format(elapsedTime))
                     if (self.log):
-                        writeToLog('\nTime elapsed: {:.0f} minutes.'.format(elapsedTime))
+                        writeToLog(stringToWrite='\nTime elapsed: {:.0f} minutes.'.format(elapsedTime))
 
             else:
                 if ((int)(elapsedTime) == 1):
                     print('Time elapsed: 1 second.')
                     if (self.log):
-                        writeToLog('\nTime elapsed: 1 second.')
+                        writeToLog(stringToWrite='\nTime elapsed: 1 second.')
                 else:
                     print('Time elapsed: {:.0f} seconds.'.format(elapsedTime))
                     if (self.log):
-                         writeToLog('\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
+                         writeToLog(stringToWrite='\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
 
         if warnings:
             if len(warnings) == 1:
                 print('Warning: there was 1 warning found.')
                 if (self.log):
-                    writeToLog('\nThere was 1 warning found.')
+                    writeToLog(stringToWrite='\nWarning: There was 1 warning found.')
             else:
                 print('Warning: there were {} warnings found.'.format(len(warnings)))
                 if (self.log):
-                    writeToLog('\nThere were {} warnings found.'.format(len(warnings)))
+                    writeToLog(stringToWrite='\nWarning: There were {} warnings found.'.format(len(warnings)))
 
         if errors:
             if len(errors) == 1:
-                if (self.log):
-                    writeToLog('\nThere was 1 error found.')
                 raise BitrotException(
                     1, 'There was 1 error found.',
                 )
             else:
-                if (self.log):
-                    writeToLog('\nthere were {} errors found.'.format(len(errors)))
                 raise BitrotException(
-                    1, 'there were {} errors found.'.format(len(errors)), errors,
+                    1, 'There were {} errors found.'.format(len(errors)), errors,
                 )
 
 
@@ -467,7 +477,7 @@ class Bitrot(object):
         max_path_size = cols - len(size_fmt) - 1
 
         #without this line, weird character in the filename could cause strange printing output
-        current_path = cleanString(current_path)
+        current_path = cleanString(stringToClean=current_path)
 
         if len(current_path) > max_path_size:
             # show first half and last half, separated by ellipsis
@@ -489,43 +499,43 @@ class Bitrot(object):
         if (error_count == 1):
             print('\rFinished. {:.2f} MiB of data read. 1 error found. '.format(total_size/1024/1024),end="")
             if (self.log):
-                writeToLog('\n\nFinished. {:.2f} MiB of data read. '.format(total_size/1024/1024))
+                writeToLog(stringToWrite='\n\nFinished. {:.2f} MiB of data read. '.format(total_size/1024/1024))
         else:
             print('\rFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size/1024/1024, error_count),end="")
             if (self.log):
-                writeToLog('\n\nFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size/1024/1024, error_count))
+                writeToLog(stringToWrite='\n\nFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size/1024/1024, error_count))
 
         if (warning_count == 1):
             print('1 warning found.')
             if (self.log):
-                writeToLog('1 warning found')
+                writeToLog(stringToWrite='1 warning found')
         else:
             print('{} warnings found.'.format(warning_count))
             if (self.log):
-                writeToLog('{} warnings found.'.format(warning_count))
+                writeToLog(stringToWrite='{} warnings found.'.format(warning_count))
 
 
         if self.verbosity == 1:
             if (all_count == 1):
                 print(
-                    '\n1 entry in the database, {} new, {} updated, '
+                    '1 entry in the database, {} new, {} updated, '
                     '{} renamed, {} missing.'.format(
                         len(new_paths), len(updated_paths),
                         len(renamed_paths), len(missing_paths)))
                 if (self.log):
-                    writeToLog(
+                    writeToLog(stringToWrite=
                     '\n1 entry in the database, {} new, {} updated, '
                     '{} renamed, {} missing.'.format(
                         len(new_paths), len(updated_paths),
                         len(renamed_paths), len(missing_paths)))
             else:
                 print(
-                '\n{} entries in the database, {} new, {} updated, '
+                '{} entries in the database, {} new, {} updated, '
                 '{} renamed, {} missing.'.format(
                     all_count, len(new_paths), len(updated_paths),
                     len(renamed_paths), len(missing_paths)))
                 if (self.log):
-                    writeToLog(
+                    writeToLog(stringToWrite=
                     '\n{} entries in the database, {} new, {} updated, '
                     '{} renamed, {} missing.'.format(
                         all_count, len(new_paths), len(updated_paths),
@@ -535,53 +545,53 @@ class Bitrot(object):
             if (all_count == 1):
                 print('1 entry in the database.')
                 if (self.log):
-                    writeToLog('1 entry in the database.')
+                    writeToLog(stringToWrite='1 entry in the database.')
             else:
                 print('{} entries in the database.'.format(all_count), end=' ')
                 if (self.log):
-                    writeToLog('\n{} entries in the database.'.format(all_count))
+                    writeToLog(stringToWrite='\n{} entries in the database.'.format(all_count))
 
             if new_paths:
                 if (len(new_paths) == 1):
                     print('\n1 new entry:')
                     if (self.log):
-                        writeToLog('\n1 new entry:')
+                        writeToLog(stringToWrite='\n1 new entry:')
                 else:
                     print('\n{} new entries:'.format(len(new_paths)))
                     if (self.log):
-                        writeToLog('\n{} new entries:'.format(len(new_paths)))
+                        writeToLog(stringToWrite='\n{} new entries:'.format(len(new_paths)))
 
                 new_paths.sort()
                 for path in new_paths:
                     print(' ', path.decode(FSENCODING))
                     if (self.log):
-                        writeToLog('\n {}'.format(path.decode(FSENCODING)))
+                        writeToLog(stringToWrite='\n {}'.format(path.decode(FSENCODING)))
 
             if updated_paths:
                 if (len(updated_paths) == 1):
                     print('1 entry updated:')
                     if (self.log):
-                        writeToLog('\n1 entry updated:')
+                        writeToLog(stringToWrite='\n1 entry updated:')
                 else:
                     print('{} entries updated:'.format(len(updated_paths)))
                     if (self.log):
-                        writeToLog('\n{} entries updated:'.format(len(updated_paths)))
+                        writeToLog(stringToWrite='\n{} entries updated:'.format(len(updated_paths)))
 
                 updated_paths.sort()
                 for path in updated_paths:
                     print(' ', path.decode(FSENCODING))
                     if (self.log):
-                        writeToLog('\n {}'.format(path.decode(FSENCODING)))
+                        writeToLog(stringToWrite='\n {}'.format(path.decode(FSENCODING)))
 
             if renamed_paths:
                 if (len(renamed_paths) == 1):
                     print('1 entry renamed:')
                     if (self.log):
-                        writeToLog('\n1 entry renamed:')
+                        writeToLog(stringToWrite='\n1 entry renamed:')
                 else:
                     print('{} entries renamed:'.format(len(renamed_paths)))
                     if (self.log):
-                        writeToLog('\n{} entries renamed:'.format(len(renamed_paths)))
+                        writeToLog(stringToWrite='\n{} entries renamed:'.format(len(renamed_paths)))
 
                 renamed_paths.sort()
                 for path in renamed_paths:
@@ -594,30 +604,30 @@ class Bitrot(object):
                         path[1],
                     )
                     if (self.log):
-                        writeToLog('\n from {} to {}'.format(path[0],path[1]))
+                        writeToLog(stringToWrite='\n from {} to {}'.format(path[0],path[1]))
                     
             if missing_paths:
                 if (len(missing_paths) == 1):
                     print('1 entry missing:')
                     if (self.log):
-                        writeToLog('\n1 entry missing:')
+                        writeToLog(stringToWrite='\n1 entry missing:')
                 else:
                     print('{} entries missing:'.format(len(missing_paths)))
                     if (self.log):
-                        writeToLog('\n{} entries missing:'.format(len(missing_paths)))
+                        writeToLog(stringToWrite='\n{} entries missing:'.format(len(missing_paths)))
 
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
                     print(' ', path)
                     if (self.log):
-                        writeToLog('\n {}'.format(path))
+                        writeToLog(stringToWrite='\n {}'.format(path))
                         
             if not any((new_paths, updated_paths, missing_paths)):
                 print()
         if self.test and self.verbosity:
             print('Database file not updated on disk (test mode).')
             if (self.log):
-                writeToLog('Database file not updated on disk (test mode).')
+                writeToLog(stringToWrite='\nDatabase file not updated on disk (test mode).')
 
     def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1):
         """Either add a new entry to the database or update the existing entry
@@ -672,15 +682,6 @@ def stable_sum(bitrot_db=None):
         row = cur.fetchone()
     return digest.hexdigest()
 
-def writeToLog(stringToWrite=""):
-    log_path = get_path(ext=b'log')
-    stringToWrite = cleanString(stringToWrite)
-    with open(log_path, 'a') as logFile:
-        logFile.write(stringToWrite)
-        logFile.close()
-
-
-
 def check_sha512_integrity(verbosity=1, log=1):
     sha512_path = get_path(ext=b'sha512')
     if not os.path.exists(sha512_path):
@@ -689,7 +690,7 @@ def check_sha512_integrity(verbosity=1, log=1):
     if verbosity:
         print('Checking bitrot.db integrity... ', end='')
         if (log):
-            writeToLog('\nChecking bitrot.db integrity... ')
+            writeToLog(stringToWrite='\nChecking bitrot.db integrity... ')
         sys.stdout.flush()
     with open(sha512_path, 'rb') as f:
         old_sha512 = f.read().strip()
@@ -705,7 +706,7 @@ def check_sha512_integrity(verbosity=1, log=1):
                 "be corrupt.",
             )
             if (log):
-                writeToLog(
+                writeToLog(stringToWrite=
                 "\nError: SHA512 of the file is different, bitrot.db might "
                 "be corrupt.",
             )
@@ -715,7 +716,7 @@ def check_sha512_integrity(verbosity=1, log=1):
                 "has a suspicious length. It might be corrupt.",
             )
             if (log):
-                writeToLog(
+                writeToLog(stringToWrite=
                 "\nError: SHA512 of the file is different but bitrot.sha512 "
                 "has a suspicious length. It might be corrupt.",
             )
@@ -725,9 +726,9 @@ def check_sha512_integrity(verbosity=1, log=1):
             file=sys.stderr,
         )
         if (log):
-            writeToLog(
+            writeToLog(stringToWrite=
             "\nIf you'd like to continue anyway, delete the .bitrot.sha512 file and try again.")
-            writeToLog("\nbitrot.db integrity check failed, cannot continue.")
+            writeToLog(stringToWrite="\nbitrot.db integrity check failed, cannot continue.")
 
         raise BitrotException(
             3, 'bitrot.db integrity check failed, cannot continue.',
@@ -736,7 +737,7 @@ def check_sha512_integrity(verbosity=1, log=1):
     if verbosity:
         print('ok.')
         if (log):
-            writeToLog('ok.')
+            writeToLog(stringToWrite='ok.')
 
 
 def update_sha512_integrity(verbosity=1, log=1):
@@ -755,14 +756,14 @@ def update_sha512_integrity(verbosity=1, log=1):
         if verbosity:
             print('Updating bitrot.sha512... ', end='')
             if (log):
-                writeToLog('\nUpdating bitrot.sha512... ')
+                writeToLog(stringToWrite='\nUpdating bitrot.sha512... ')
             sys.stdout.flush()
         with open(sha512_path, 'wb') as f:
             f.write(new_sha512)
         if verbosity:
             print('done.')
             if (log):
-                writeToLog('done.')
+                writeToLog(stringToWrite='done.')
 
 def isValidHashingFunction(stringToValidate=""):
     if  (stringToValidate.upper() == "SHA1"
@@ -850,10 +851,10 @@ def run_from_command_line():
             log_path = get_path(ext=b'log')
             if verbosity:
                 if os.path.exists(log_path):
-                    writeToLog('\n')
-                    writeToLog('======================================================\n')
-                writeToLog('Log started at ')
-                writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+                    writeToLog(stringToWrite='\n')
+                    writeToLog(stringToWrite='======================================================\n')
+                writeToLog(stringToWrite='Log started at ')
+                writeToLog(stringToWrite=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         if args.no_time:
             no_time = 1
             args.test = 1
@@ -861,14 +862,14 @@ def run_from_command_line():
             if verbosity:
                 print('Using stdin for file list')
                 if (args.log):
-                   writeToLog('\nUsing stdin for file list') 
+                   writeToLog(stringToWrite='\nUsing stdin for file list') 
             file_list = sys.stdin
         elif args.file_list:
             if verbosity:
                 print('Opening file list in', args.file_list)
                 if (args.log):
-                    writeToLog('\nOpening file list in ')
-                    writeToLog(args.file_list)
+                    writeToLog(stringToWrite='\nOpening file list in ')
+                    writeToLog(stringToWrite=args.file_list)
             file_list = open(args.file_list)
         else:
             file_list = None
@@ -876,8 +877,8 @@ def run_from_command_line():
             if verbosity:
                 print('Opening exclude list in', args.exclude_list)
                 if (args.log):
-                    writeToLog('\nOpening exclude list in')
-                    writeToLog(args.exclude_list)
+                    writeToLog(stringToWrite='\nOpening exclude list in')
+                    writeToLog(stringToWrite=args.exclude_list)
             exclude_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.exclude_list)]
         else:
             exclude_list = []
@@ -905,15 +906,15 @@ def run_from_command_line():
             #algorithms_available = hashlib.algorithms_available
             #search = args.hashing_function
             #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
-                if (isValidHashingFunction(args.hashing_function) == True):
+                if (isValidHashingFunction(stringToValidate=args.hashing_function) == True):
                     hashing_function = args.hashing_function
                     print('Using {} for hashing function'.format(args.hashing_function))   
                     if (args.log):
-                       writeToLog('\nUsing {} for hashing function'.format(args.hashing_function))
+                       writeToLog(stringToWrite='\nUsing {} for hashing function'.format(args.hashing_function))
                 else:
                     print("Invalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
                     if (args.log):
-                        writeToLog("\nInvalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
+                        writeToLog(stringToWrite="\nInvalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
         else:
             hashing_function = None
         try:
@@ -921,8 +922,8 @@ def run_from_command_line():
         except BitrotException as bre:
             print('Error:', bre.args[1], file=sys.stderr)
             if (args.log):
-                writeToLog('\nError: ')
-                writeToLog(bre.args[1])
+                writeToLog(stringToWrite='\nError: ')
+                writeToLog(stringToWrite=bre.args[1])
             sys.exit(bre.args[0])
 
         if file_list:
