@@ -229,12 +229,12 @@ class Bitrot(object):
         self._last_commit_ts = time.time()
 
     def run(self):
+        check_sha512_integrity(verbosity=self.verbosity, log=self.log)
+
         bitrot_sha512 = get_path(ext=b'sha512')
         bitrot_log = get_path(ext=b'log')
         bitrot_db = get_path()
-
-        check_sha512_integrity(verbosity=self.verbosity, log=self.log)
-        
+      
         try:
             conn = get_sqlite3_cursor(bitrot_db, copy=self.test)
         except ValueError:
@@ -727,7 +727,6 @@ def check_sha512_integrity(verbosity=1, log=1):
         if (log):
             writeToLog(
             "\nIf you'd like to continue anyway, delete the .bitrot.sha512 file and try again.")
-        if (log):
             writeToLog("\nbitrot.db integrity check failed, cannot continue.")
 
         raise BitrotException(
