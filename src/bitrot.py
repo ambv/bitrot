@@ -181,7 +181,7 @@ def list_existing_paths(directory, expected=(), ignored=(),
                 if ex.errno not in IGNORED_FILE_SYSTEM_ERRORS:
                     raise
             else:
-                if not stat.S_ISREG(st.st_mode) or p in ignored:
+                if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
                     if verbosity > 1:
                         #print('Ignoring file: {}'.format(p))
                         print('Ignoring file: {}'.format(p.decode(FSENCODING)))
