@@ -59,7 +59,6 @@ if sys.version[0] == '2':
 def ts():
     return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S%z')
 
-
 def get_sqlite3_cursor(path, copy=False):
     path = path.decode(FSENCODING)
     if copy:
