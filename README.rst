@@ -49,16 +49,16 @@ Change Log
 
 0.9.3
 ~~~~~
-*Added logging to file
-*Added grammar fixes
-*Added a time elapsed counter
-*Added email support for hash mismatch
-*Added option to ignore date modified (only checks hashes). Great for verifying backups for integrity (File Integirty Monitoring)
-*Added ability to specify hash function from command line. I found SHA512 to be just as fast as SHA1 on my machine
-*Total size now supposed B, KB. MB, GB, TB
-*Fixes for invalid characters in file names
-*Better warning printing
-*Integrates benshep's and liloman's latest changes
+* Added logging to file
+* Added grammar fixes
+* Added a time elapsed counter
+* Added email support for hash mismatch
+* Added option to ignore date modified (only checks hashes). Great for verifying backups for integrity (File Integirty Monitoring)
+* Added ability to specify hash function from command line. I found SHA512 to be just as fast as SHA1 on my machine
+* Total size now supposed B, KB. MB, GB, TB
+* Fixes for invalid characters in file names
+* Better warning printing
+* Integrates benshep's and liloman's latest changes
 
 0.9.2
 ~~~~~
