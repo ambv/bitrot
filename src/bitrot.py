@@ -46,8 +46,8 @@ from datetime import timedelta
 #import re
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
-DOT_THRESHOLD = 200
-VERSION = (0, 9, 2)
+DOT_THRESHOLD = 2
+VERSION = (0, 9, 3)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
 DEFAULT_HASH_FUNCTION = "SHA512"
@@ -55,6 +55,29 @@ DEFAULT_HASH_FUNCTION = "SHA512"
 if sys.version[0] == '2':
     str = type(u'text')
     # use `bytes` for bytestrings
+
+def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
+    msg = MIMEText(stringToSend)
+
+    FROMADDR = 'author@gmail.com'
+    TOADDR  = 'recipient@gmail.com'
+    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
+    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
+    USERNAME = 'authorUsername'
+    PASSWORD = 'authorPassword'
+
+    try:
+        msg['Subject'] = subject
+        # The actual mail send
+        server = smtplib.SMTP('smtp.gmail.com:587')
+        server.starttls()
+        server.login(USERNAME,PASSWORD)
+        server.sendmail(FROMADDR, TOADDR, msg.as_string())
+        server.quit()
+    except Exception as err:
+        print('Email sending error:', err)
+        if (log):
+            writeToLog(stringToWrite='\n\nEmail sending error: {}'.format(err))
 
 def ts():
     return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S%z')
@@ -127,7 +150,7 @@ def list_existing_paths(directory, expected=(), ignored=(),
                     raise
             else:
                 if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
-                    if verbosity > 1:
+                    if verbosity > 2:
                         #print('Ignoring file: {}'.format(p))
                         print('Ignoring file: {}'.format(p.decode(FSENCODING)))
                         if (log):
@@ -748,28 +771,6 @@ def writeToLog(stringToWrite=""):
         logFile.write(stringToWrite)
         logFile.close()
 
-def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
-    msg = MIMEText(stringToSend)
-
-    FROMADDR = 'author@gmail.com'
-    TOADDR  = 'recipient@gmail.com'
-    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
-    USERNAME = 'authorUsername'
-    PASSWORD = 'authorPassword'
-
-    try:
-        msg['Subject'] = subject
-        # The actual mail send
-        server = smtplib.SMTP('smtp.gmail.com:587')
-        server.starttls()
-        server.login(USERNAME,PASSWORD)
-        server.sendmail(FROMADDR, TOADDR, msg.as_string())
-        server.quit()
-    except Exception as err:
-        print('Email sending error:', err)
-        if (log):
-            writeToLog(stringToWrite='\n\nEmail sending error: {}'.format(err))
 
 def cleanString(stringToClean=""):
     #stringToClean=re.sub(r'[\\/*?:"<>|]',"",stringToClean)
@@ -815,9 +816,6 @@ def run_from_command_line():
              'symbolic links registered during the first run will be '
              'properly followed and checked even if you run without `-l`.')
     parser.add_argument(
-        '-q', '--quiet', action='store_true',
-        help='don\'t print anything besides checksum errors')
-    parser.add_argument(
         '-s', '--sum', action='store_true',
         help='using only the data already gathered, return a SHA-512 sum '
              'of hashes of all the entries in the database. No timestamps '
@@ -849,8 +847,11 @@ def run_from_command_line():
         '-x', '--exclude-list', default='',
         help="don't read the files listed in this file - wildcards are allowed")
     parser.add_argument(
-        '-v', '--verbose', action='store_true',
-        help='list new, updated and missing entries')
+        '-v', '--verbose', default=1,
+        help='Level 0: Don\'t print anything besides checksum errors.\n'
+        'Level 1: Normal amount of verbosity.\n'
+        'Level 2: List new, updated and missing entries.\n'
+        'Level 3: List new, updated and missing entries, and ignored files.\n')
     parser.add_argument(
         '-n', '--no-time', action='store_true',
         help='Doesnt compare dates, only hashes. Also enables test-only mode')
@@ -868,11 +869,11 @@ def run_from_command_line():
         except RuntimeError as e:
             print(str(e).encode('utf8'), file=sys.stderr)
     else:
-        verbosity = 1
-        if args.quiet:
-            verbosity = 0
-        elif args.verbose:
-            verbosity = 2
+        if args.verbose:
+            verbosity = int(args.verbose)
+            if (verbosity != 0 and verbosity != 1 and verbosity != 2 and verbosity != 3):
+                verbosity = 1
+
         if (args.log):
             log_path = get_path(ext=b'log')
             if (verbosity):
