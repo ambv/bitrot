@@ -780,7 +780,7 @@ def cleanString(stringToClean=""):
 def hash(path, chunk_size,hashing_function="",log=1):
     if (not isValidHashingFunction(stringToValidate=hashing_function)):
         hashing_function = DEFAULT_HASH_FUNCTION
-    if   (hashing_function.upper() == "MD5"):
+    elif (hashing_function.upper() == "MD5"):
         digest=hashlib.md5()
     elif (hashing_function.upper() == "SHA1"):
         digest=hashlib.sha1()
@@ -793,6 +793,7 @@ def hash(path, chunk_size,hashing_function="",log=1):
     elif (hashing_function.upper() == "SHA512"):
         digest=hashlib.sha512() 
     else:
+        #You should never get here
         if (log):
             writeToLog(stringToWrite='\nInvalid hash function detected.')
         raise Exception('Invalid hash function detected.')
