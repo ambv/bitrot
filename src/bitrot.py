@@ -308,16 +308,11 @@ class Bitrot(object):
             if stored_hash != new_hash:
                 errors.append(p)
 
-                if (isValidHashingFunction(stringToValidate=self.hashing_function)):
-                    hashingFunctionString = self.hashing_function
-                else:
-                    hashingFunctionString = DEFAULT_HASH_FUNCTION
-                    
                 print(
                     '\rError: {} mismatch for {}\nExpected: {}\nGot:      {}'
                     '\nLast good hash checked on {}\n'.format(
                     #p, stored_hash, new_hash, stored_ts
-                    hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts
+                    self.hashing_function,p.decode(FSENCODING), stored_hash, new_hash, stored_ts
                     ),
                     file=sys.stderr,
                 )
@@ -326,9 +321,9 @@ class Bitrot(object):
                         '\n\nError: {} mismatch for {}\nExpected: {}\nGot:          {}'
                         '\nLast good hash checked on {}'.format(
                         #p, stored_hash, new_hash, stored_ts
-                        hashingFunctionString,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))
+                        self.hashing_function,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))
                 if (self.email):
-                        sendMail('Error {} mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}'.format(hashingFunctionString,p.decode(FSENCODING),
+                        sendMail('Error {} mismatch for {} \nExpected {}\nGot          {}\nLast good hash checked on {}'.format(self.hashing_function,p.decode(FSENCODING),
                         stored_hash,new_hash,stored_ts),log=self.log,verbosity=self.verbosity, subject="FIM Error")
                     
         for path in missing_paths:
@@ -724,12 +719,12 @@ def recordTimeElapsed(startTime=0, log=1):
                  writeToLog(stringToWrite='\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
 
 def isValidHashingFunction(stringToValidate=""):
-    if  (stringToValidate.upper() == "SHA1"
-      or stringToValidate.upper() == "SHA224"
-      or stringToValidate.upper() == "SHA384"
-      or stringToValidate.upper() == "SHA256"
-      or stringToValidate.upper() == "SHA512"
-      or stringToValidate.upper() == "MD5"):
+    if  (stringToValidate == "SHA1"
+      or stringToValidate == "SHA224"
+      or stringToValidate == "SHA384"
+      or stringToValidate == "SHA256"
+      or stringToValidate == "SHA512"
+      or stringToValidate == "MD5"):
         return True
     else:
         return False
@@ -778,9 +773,7 @@ def cleanString(stringToClean=""):
     return stringToClean
 
 def hash(path, chunk_size,hashing_function="",log=1):
-    if (not isValidHashingFunction(stringToValidate=hashing_function)):
-        hashing_function = DEFAULT_HASH_FUNCTION
-    elif (hashing_function.upper() == "MD5"):
+    if (hashing_function.upper() == "MD5"):
         digest=hashlib.md5()
     elif (hashing_function.upper() == "SHA1"):
         digest=hashlib.sha1()
@@ -910,9 +903,36 @@ def run_from_command_line():
             exclude_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.exclude_list)]
         else:
             exclude_list = []
+
+        if (args.hashing_function):
+            #combined = '\t'.join(hashlib.algorithms_available)
+            #if (args.hashing_function in combined):
+
+            #word_to_check = args.hashing_function
+            #wordlist = hashlib.algorithms_available
+            #result = any(word_to_check in word for word in wordlist)
+
+            #algorithms_available = hashlib.algorithms_available
+            #search = args.hashing_function
+            #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
+            if (isValidHashingFunction(stringToValidate=args.hashing_function.upper()) == True):
+                hashing_function = args.hashing_function.upper()
+                if (verbosity):
+                    print('Using {} for hashing function'.format(args.hashing_function.upper()))   
+                    if (args.log):
+                       writeToLog(stringToWrite='\nUsing {} for hashing function'.format(args.hashing_function.upper()))
+            else:
+                if (verbosity):
+                    print("Invalid hashing function specified: {}. Using default {}".format(args.hashing_function,DEFAULT_HASH_FUNCTION))
+                    if (args.log):
+                        writeToLog(stringToWrite="\nInvalid hashing function specified: {}. Using default {}".format(args.hashing_function,DEFAULT_HASH_FUNCTION))
+                hashing_function = DEFAULT_HASH_FUNCTION
+        else:
+            hashing_function = DEFAULT_HASH_FUNCTION
+
         bt = Bitrot(
             verbosity=verbosity,
-            hashing_function=args.hashing_function.upper(),
+            hashing_function=hashing_function,
             test=args.test,
             email=args.email,
             log = args.log,
@@ -925,28 +945,7 @@ def run_from_command_line():
         )
         if args.fsencoding:
             FSENCODING = args.fsencoding
-        if (args.hashing_function):
-            #combined = '\t'.join(hashlib.algorithms_available)
-            #if (args.hashing_function in combined):
 
-            #word_to_check = args.hashing_function
-            #wordlist = hashlib.algorithms_available
-            #result = any(word_to_check in word for word in wordlist)
-
-            #algorithms_available = hashlib.algorithms_available
-            #search = args.hashing_function
-            #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
-            if (isValidHashingFunction(stringToValidate=args.hashing_function) == True):
-                hashing_function = args.hashing_function
-                print('Using {} for hashing function'.format(args.hashing_function))   
-                if (args.log):
-                   writeToLog(stringToWrite='\nUsing {} for hashing function'.format(args.hashing_function))
-            else:
-                print("Invalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
-                if (args.log):
-                    writeToLog(stringToWrite="\nInvalid hashing function specified: {}. Using default SHA1".format(args.hashing_function))
-        else:
-            hashing_function = None
         try:
             bt.run()
         except BitrotException as bre:
