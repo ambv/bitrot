@@ -495,11 +495,11 @@ class Bitrot(object):
 
             if updated_paths:
                 if (len(updated_paths) == 1):
-                    print('1 entry updated:')
+                    print('\n1 entry updated:')
                     if (self.log):
                         writeToLog(stringToWrite='\n1 entry updated:')
                 else:
-                    print('{} entries updated:'.format(len(updated_paths)))
+                    print('\n{} entries updated:'.format(len(updated_paths)))
                     if (self.log):
                         writeToLog(stringToWrite='\n{} entries updated:'.format(len(updated_paths)))
 
@@ -511,11 +511,11 @@ class Bitrot(object):
 
             if renamed_paths:
                 if (len(renamed_paths) == 1):
-                    print('1 entry renamed:')
+                    print('\n1 entry renamed:')
                     if (self.log):
                         writeToLog(stringToWrite='\n1 entry renamed:')
                 else:
-                    print('{} entries renamed:'.format(len(renamed_paths)))
+                    print('\n{} entries renamed:'.format(len(renamed_paths)))
                     if (self.log):
                         writeToLog(stringToWrite='\n{} entries renamed:'.format(len(renamed_paths)))
 
@@ -534,11 +534,11 @@ class Bitrot(object):
                     
             if missing_paths:
                 if (len(missing_paths) == 1):
-                    print('1 entry missing:')
+                    print('\n1 entry missing:')
                     if (self.log):
                         writeToLog(stringToWrite='\n1 entry missing:')
                 else:
-                    print('{} entries missing:'.format(len(missing_paths)))
+                    print('\n{} entries missing:'.format(len(missing_paths)))
                     if (self.log):
                         writeToLog(stringToWrite='\n{} entries missing:'.format(len(missing_paths)))
 
@@ -548,7 +548,7 @@ class Bitrot(object):
                     if (self.log):
                         writeToLog(stringToWrite='\n {}'.format(path))
                         
-            if not any((new_paths, updated_paths, missing_paths)):
+            if not any((new_paths, updated_paths, missing_paths, renamed_paths)):
                 print()
         if self.test and self.verbosity:
             print('Database file not updated on disk (test mode).')
