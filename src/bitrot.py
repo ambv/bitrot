@@ -149,7 +149,14 @@ def list_existing_paths(directory, expected=(), ignored=(),
                 if ex.errno not in IGNORED_FILE_SYSTEM_ERRORS:
                     raise
             else:
-                if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
+                # split path /dir1/dir2/file.txt into
+                # ['dir1', 'dir2', 'file.txt']
+                # and match on any of these components
+                # so we could use 'dir*', '*2', '*.txt', etc. to exclude anything
+                exclude_this = [fnmatch(file.encode(FSENCODING), wildcard) 
+                                for file in p.decode(FSENCODING).split(os.path.sep)
+                                for wildcard in ignored]
+                if not stat.S_ISREG(st.st_mode) or any(exclude_this):
                     if verbosity > 2:
                         #print('Ignoring file: {}'.format(p))
                         print('Ignoring file: {}'.format(p.decode(FSENCODING)))
@@ -198,10 +205,13 @@ class Bitrot(object):
     def run(self):
         check_sha512_integrity(verbosity=self.verbosity, log=self.log)
 
-        bitrot_sha512 = get_path(ext=b'sha512')
-        bitrot_log = get_path(ext=b'log')
-        bitrot_db = get_path()
-      
+        #bitrot_sha512 = get_path(ext=b'sha512')
+        #bitrot_log = get_path(ext=b'log')
+        #bitrot_db = get_path()
+        bitrot_db = os.path.basename(get_path())
+        bitrot_sha512 = os.path.basename(get_path(ext=b'sha512'))
+        bitrot_log = os.path.basename(get_path(ext=b'log'))
+     
         try:
             conn = get_sqlite3_cursor(bitrot_db, copy=self.test)
         except ValueError:
@@ -587,7 +597,7 @@ def stable_sum(bitrot_db=None):
     Useful for comparing if two directories hold the same data, as it ignores
     timing information."""
     if bitrot_db is None:
-        bitrot_db = get_path()
+        bitrot_db = os.path.basename(get_path())
     digest = hashlib.sha512()
     conn = get_sqlite3_cursor(bitrot_db)
     cur = conn.cursor()
@@ -599,11 +609,11 @@ def stable_sum(bitrot_db=None):
     return digest.hexdigest()
 
 def check_sha512_integrity(verbosity=1, log=1):
-    sha512_path = get_path(ext=b'sha512')
+    sha512_path = os.path.basename(get_path(ext=b'sha512'))
     if not os.path.exists(sha512_path):
         return
 
-    bitrot_db = get_path()
+    bitrot_db = os.path.basename(get_path())
     if not os.path.exists(bitrot_db):
         return
 
@@ -661,12 +671,12 @@ def check_sha512_integrity(verbosity=1, log=1):
 
 def update_sha512_integrity(verbosity=1, log=1):
     old_sha512 = 0
-    sha512_path = get_path(ext=b'sha512')
+    sha512_path = os.path.basename(get_path(ext=b'sha512'))
 
     if os.path.exists(sha512_path):
         with open(sha512_path, 'rb') as f:
             old_sha512 = f.read().strip()
-    bitrot_db = get_path()
+    bitrot_db = os.path.basename(get_path())
     digest = hashlib.sha512()
     with open(bitrot_db, 'rb') as f:
         digest.update(f.read())
@@ -760,7 +770,7 @@ def calculateUnits(total_size = 0):
         return sizeUnits, total_size
 
 def writeToLog(stringToWrite=""):
-    log_path = get_path(ext=b'log')
+    log_path = os.path.basename(get_path(ext=b'log'))
     stringToWrite = cleanString(stringToWrite)
     with open(log_path, 'a') as logFile:
         logFile.write(stringToWrite)
@@ -869,7 +879,7 @@ def run_from_command_line():
                 verbosity = 1
 
         if (args.log):
-            log_path = get_path(ext=b'log')
+            log_path = os.path.basename(get_path(ext=b'log'))
             if (verbosity):
                 if os.path.exists(log_path):
                     writeToLog(stringToWrite='\n')
