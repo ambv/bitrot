@@ -52,6 +52,7 @@ VERSION = (0, 9, 3)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
 DEFAULT_HASH_FUNCTION = "SHA512"
+RECENT = 3
 
 if sys.version[0] == '2':
     str = type(u'text')
@@ -177,6 +178,7 @@ def list_existing_paths(directory, expected=(), ignored=(), included=(),
     """
     paths = []
     total_size = 0
+    ignoredList = []
     for path, _, files in os.walk(directory):
         for f in files:
             p = os.path.join(path, f)
@@ -214,17 +216,18 @@ def list_existing_paths(directory, expected=(), ignored=(), included=(),
 
                 if not stat.S_ISREG(st.st_mode) or any(exclude_this) or any([fnmatch(p, exc) for exc in ignored]) or (included and not any([fnmatch(p, exc) for exc in included]) and not any(include_this)):
                 #if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
-                    if verbosity > 2:
+                    ignoredList.append(p.decode(FSENCODING))
+                    #if verbosity > 2:
                         #print('Ignoring file: {}'.format(p))
-                        print('Ignoring file: {}'.format(p.decode(FSENCODING)))
-                        if (log):
+                        #print('Ignoring file: {}'.format(p.decode(FSENCODING)))
+                        #if (log):
                             #writeToLog(stringToWrite="\nIgnoring file: {}".format(p))
-                            writeToLog(stringToWrite="\nIgnoring file: {}".format(p.decode(FSENCODING)))
+                            #writeToLog(stringToWrite="\nIgnoring file: {}".format(p.decode(FSENCODING)))
                     continue
                 paths.append(p)
                 total_size += st.st_size
     paths.sort()
-    return paths, total_size
+    return paths, total_size, ignoredList
 
 class BitrotException(Exception):
     pass
@@ -232,8 +235,8 @@ class BitrotException(Exception):
 
 class Bitrot(object):
     def __init__(
-        self, verbosity=1, email = False, log = False, test=False, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[],  no_time=False, hashing_function="", sfv="MD5"
+        self, verbosity=1, email = False, log = False, test=0, follow_links=False, commit_interval=300,
+        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], hashing_function="", sfv="MD5"
     ):
         self.verbosity = verbosity
         self.test = test
@@ -246,8 +249,7 @@ class Bitrot(object):
         self._last_commit_ts = 0
         self.email = email
         self.log = log
-        self.no_time = no_time
-        self.startTime = time.clock()
+        self.startTime = time.time()
         self.hashing_function = hashing_function
         self.sfv = sfv
 
@@ -265,13 +267,12 @@ class Bitrot(object):
         bitrot_sha512 = get_path(ext=b'sha512')
         bitrot_log = get_path(ext=b'log')
         bitrot_db = get_path()
-        bitrot_sfv = None
         bitrot_sfv = get_path(ext=b'sfv')
         bitrot_md5 = get_path(ext=b'md5')
         #bitrot_db = os.path.basename(get_path())
         #bitrot_sha512 = os.path.basename(get_path(ext=b'sha512'))
         #bitrot_log = os.path.basename(get_path(ext=b'log'))
-     
+
         try:
             conn = get_sqlite3_cursor(bitrot_db, copy=self.test)
         except ValueError:
@@ -288,6 +289,7 @@ class Bitrot(object):
         renamed_paths = []
         errors = []
         emails = []
+        tooOldList = []
         warnings = []
         current_size = 0
         missing_paths = self.select_all_paths(cur)
@@ -296,13 +298,14 @@ class Bitrot(object):
         #        for line in self.include_list.readlines()]
         #    total_size = sum([os.path.getsize(filename) for filename in paths])
         #else:
-        paths, total_size = list_existing_paths(
+        paths, total_size, ignoredList = list_existing_paths(
             b'.', expected=missing_paths, 
             ignored=[bitrot_db, bitrot_sha512,bitrot_log,bitrot_sfv,bitrot_md5] + self.exclude_list,
             included=self.include_list,
             follow_links=self.follow_links,
             verbosity=self.verbosity,
             log=self.log
+
         )
 
         FIMErrorCounter = 0;
@@ -332,6 +335,17 @@ class Bitrot(object):
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
 
             new_mtime = int(st.st_mtime)
+
+            if (self.test >= 3):
+                a = datetime.datetime.now()
+                b = datetime.datetime.fromtimestamp(new_mtime)
+                delta = a - b
+                if (delta.days >= RECENT):
+                    tooOldList.append(p_uni)
+                    missing_paths.discard(p_uni)
+                    total_size -= st.st_size
+                    continue
+
             current_size += st.st_size
             if self.verbosity:
                 self.report_progress(current_size, total_size, p_uni)
@@ -371,8 +385,10 @@ class Bitrot(object):
                 continue
             stored_mtime, stored_hash, stored_ts = row
 
-        
-            if (int(stored_mtime) != new_mtime) and (self.no_time == False):
+
+
+
+            if (int(stored_mtime) != new_mtime) and not (self.test >= 2):
                 updated_paths.append(p)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
                             'WHERE path=?',
@@ -410,7 +426,8 @@ class Bitrot(object):
             if (FIMErrorCounter >= 1):
                 emailToSendString=""
                 for i in range(0, FIMErrorCounter):
-                    emailToSendString +="Error {} mismatch for {} \nExpected {}\nGot:          {}\nLast good hash checked on {}\n\n".format(emails[i][0],emails[i][1],emails[i][2],emails[i][3],emails[i][4])
+                    emailToSendString +="Error {} mismatch for {} \nExpected {}\nGot:          {}\n".format(emails[i][0],emails[i][1],emails[i][2],emails[i][3])
+                    emailToSendString +="Last good hash checked on {}\n\n".format(emails[i][4])
                 sendMail(emailToSendString,log=self.log,verbosity=self.verbosity, subject="FIM Error")
 
         for path in missing_paths:
@@ -430,6 +447,8 @@ class Bitrot(object):
                 updated_paths,
                 renamed_paths,
                 missing_paths,
+                tooOldList,
+                ignoredList,
             )
 
         update_sha512_integrity(verbosity=self.verbosity, log=self.log)
@@ -496,7 +515,7 @@ class Bitrot(object):
 
     def report_done(
         self, total_size, all_count, error_count, warning_count, new_paths, updated_paths,
-        renamed_paths, missing_paths):
+        renamed_paths, missing_paths, tooOldList, ignoredList):
 
         sizeUnits , total_size = calculateUnits(total_size=total_size)
 
@@ -554,15 +573,53 @@ class Bitrot(object):
                 if (self.log):
                     writeToLog(stringToWrite='\n{} entries in the database.'.format(all_count))
 
+        if self.verbosity >= 3:
+            if (ignoredList):
+                if (len(ignoredList) == 1):
+                    print("\n1 files excluded: ")
+                    if (self.log):
+                        writeToLog("\n\n1 files excluded: ")
+                    for row in ignoredList:
+                        print("  {}".format(row))
+                        if (self.log):
+                            writeToLog("  \n{}".format(row))
+                else:
+                    print("\n{} files excluded: ".format(len(ignoredList)))
+                    if (self.log):
+                        writeToLog("\n\n{} files excluded: ".format(len(ignoredList)))
+                    for row in ignoredList:
+                        print("  {}".format(row))
+                        if (self.log):
+                            writeToLog("  \n{}".format(row))
+
+                if (tooOldList):
+                    if (len(tooOldList) == 1):
+                        print("\n1 non-recent files ignored: ")
+                        if (self.log):
+                            writeToLog("\n\n1 non-recent files ignored: ")
+                        for row in tooOldList:
+                            print("  {}".format(row))
+                            if (self.log):
+                                writeToLog("  \n{}".format(row))
+                    else:
+                        print("\n{} non-recent files ignored:".format(len(tooOldList)))
+                        if (self.log):
+                            writeToLog("\n\n{} non-recent files ignored".format(len(tooOldList)))
+                        for row in tooOldList:
+                            print("  {}".format(row))
+                            if (self.log):
+                                writeToLog("  \n{}".format(row))
+
+
             if new_paths:
                 if (len(new_paths) == 1):
                     print('\n1 new entry:')
                     if (self.log):
-                        writeToLog(stringToWrite='\n1 new entry:')
+                        writeToLog(stringToWrite='\n\n1 new entry:')
                 else:
                     print('\n{} new entries:'.format(len(new_paths)))
                     if (self.log):
-                        writeToLog(stringToWrite='\n{} new entries:'.format(len(new_paths)))
+                        writeToLog(stringToWrite='\n\n{} new entries:'.format(len(new_paths)))
 
                 new_paths.sort()
                 for path in new_paths:
@@ -574,11 +631,11 @@ class Bitrot(object):
                 if (len(updated_paths) == 1):
                     print('\n1 entry updated:')
                     if (self.log):
-                        writeToLog(stringToWrite='\n1 entry updated:')
+                        writeToLog(stringToWrite='\n\n1 entry updated:')
                 else:
                     print('\n{} entries updated:'.format(len(updated_paths)))
                     if (self.log):
-                        writeToLog(stringToWrite='\n{} entries updated:'.format(len(updated_paths)))
+                        writeToLog(stringToWrite='\n\n{} entries updated:'.format(len(updated_paths)))
 
                 updated_paths.sort()
                 for path in updated_paths:
@@ -590,11 +647,11 @@ class Bitrot(object):
                 if (len(renamed_paths) == 1):
                     print('\n1 entry renamed:')
                     if (self.log):
-                        writeToLog(stringToWrite='\n1 entry renamed:')
+                        writeToLog(stringToWrite='\n\n1 entry renamed:')
                 else:
                     print('\n{} entries renamed:'.format(len(renamed_paths)))
                     if (self.log):
-                        writeToLog(stringToWrite='\n{} entries renamed:'.format(len(renamed_paths)))
+                        writeToLog(stringToWrite='\n\n{} entries renamed:'.format(len(renamed_paths)))
 
                 renamed_paths.sort()
                 for path in renamed_paths:
@@ -613,11 +670,11 @@ class Bitrot(object):
                 if (len(missing_paths) == 1):
                     print('\n1 entry missing:')
                     if (self.log):
-                        writeToLog(stringToWrite='\n1 entry missing:')
+                        writeToLog(stringToWrite='\n\n1 entry missing:')
                 else:
                     print('\n{} entries missing:'.format(len(missing_paths)))
                     if (self.log):
-                        writeToLog(stringToWrite='\n{} entries missing:'.format(len(missing_paths)))
+                        writeToLog(stringToWrite='\n\n{} entries missing:'.format(len(missing_paths)))
 
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
@@ -628,9 +685,9 @@ class Bitrot(object):
             if not any((new_paths, updated_paths, missing_paths, renamed_paths)):
                 print()
         if self.test and self.verbosity:
-            print('Database file not updated on disk (test mode).')
+            print('\nDatabase file not updated on disk (test mode).')
             if (self.log):
-                writeToLog(stringToWrite='\nDatabase file not updated on disk (test mode).')
+                writeToLog(stringToWrite='\n\nDatabase file not updated on disk (test mode).')
 
     def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1):
         """Either add a new entry to the database or update the existing entry
@@ -772,7 +829,7 @@ def update_sha512_integrity(verbosity=1, log=1):
                 writeToLog(stringToWrite='done.')
 
 def recordTimeElapsed(startTime=0, log=1):
-    elapsedTime = (time.clock() - startTime)  
+    elapsedTime = (time.time() - startTime)  
     if (elapsedTime > 3600):
         elapsedTime /= 3600
         if ((int)(elapsedTime) == 1):
@@ -910,11 +967,14 @@ def run_from_command_line():
         help='only read the files listed in this file (use - for stdin)')
         # .\Directory\1.hi
     parser.add_argument(
-        '-t', '--test', action='store_true',
-        help='just test against an existing database, don\'t update anything')
+        '-t', '--test', default=0,
+        help='Level 0: normal operations.\n'
+        'Level 1: just test against an existing database, don\'t update anything.\n.'
+        'Level 2: Doesnt compare dates, only hashes.\n'
+        'Level 3: Only compares recently modified data.\n')
     parser.add_argument(
         '-a', '--hashing-function', default='',
-        help='Doesnt compare dates, only hashes. Also enables test-only mode')
+        help='Specifies the hashing function to use')
     parser.add_argument(
         '-x', '--exclude-list', default='',
         help="don't read the files listed in this file - wildcards are allowed")
@@ -940,9 +1000,6 @@ def run_from_command_line():
         'Level 2: List new, updated and missing entries.\n'
         'Level 3: List new, updated and missing entries, and ignored files.\n')
     parser.add_argument(
-        '-n', '--no-time', action='store_true',
-        help='Doesnt compare dates, only hashes. Also enables test-only mode')
-    parser.add_argument(
         '-e', '--email', action='store_true',
         help='email file integirty errors')
     parser.add_argument(
@@ -957,11 +1014,22 @@ def run_from_command_line():
         try:
             print(stable_sum())
         except RuntimeError as e:
-            print(str(e).encode('utf8'), file=sys.stderr)
+            print(str(e).encode(FSENCODING), file=sys.stderr)
     else:
+        verbosity = 1
         if args.verbose:
-            verbosity = int(args.verbose)
+            try:
+                verbosity = int(args.verbose)
+            except Exception as err:
+                print("Invalid verbosity option selected: {}. Using default level 1.".format(args.verbose))
+                if (args.log):
+                     writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
+                verbosity = 1
+                pass
             if (verbosity != 0 and verbosity != 1 and verbosity != 2 and verbosity != 3):
+                print("Invalid verbosity option selected: {}. Using default level 1.".format(args.verbose))
+                if (args.log):
+                     writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
                 verbosity = 1
 
         if (args.log):
@@ -972,14 +1040,6 @@ def run_from_command_line():
                     writeToLog(stringToWrite='======================================================\n')
                 writeToLog(stringToWrite='Log started at ')
                 writeToLog(stringToWrite=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
-
-        no_time = False
-        test = False 
-        if args.no_time:
-            no_time = True
-            test = True
-        elif args.test:
-            test = True
 
         if args.include_list == '-':
             if verbosity:
@@ -1058,13 +1118,42 @@ def run_from_command_line():
         else:
             sfv = ""
 
+        test = 0
+        try:
+            test = int(args.test)
+            if (test):
+                if (verbosity):
+                    if (test == 1):
+                        print("Just testing against an existing database, won\'t update anything.")
+                        if (args.log):
+                            writeToLog("\nJust testing against an existing database, won\'t update anything.")
+                    elif (test == 2):
+                        print("Won\'t compare dates, only hashes")
+                        if (args.log):
+                            writeToLog("\nWon\'t compare dates, only hashes")
+                    elif (test == 3):
+                        print("Only comparing recently modified data.")
+                        if (args.log):
+                            writeToLog("\nOnly comparing recently modified data.")
+                    else:
+                        print("Invalid test option selected: {}. Using default level 0.".format(args.test))
+                        if (args.log):
+                             writeToLog("\nInvalid test option selected: {}. Using default level 0.".format(args.test))
+                        test = 0
+        except Exception as err:
+            if (verbosity):
+                print("Invalid test option selected: {}. Using default level 0.".format(args.test))
+                if (args.log):
+                     writeToLog("\nInvalid test option selected: {}. Using default level 0.".format(args.test))
+            test = 0
+            pass
+
         bt = Bitrot(
             verbosity=verbosity,
             hashing_function=hashing_function,
             test=test,
             email=args.email,
             log = args.log,
-            no_time = no_time,
             follow_links=args.follow_links,
             commit_interval=args.commit_interval,
             chunk_size=args.chunk_size,
