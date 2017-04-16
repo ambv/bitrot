@@ -232,7 +232,6 @@ def list_existing_paths(directory, expected=(), ignored=(), included=(),
 class BitrotException(Exception):
     pass
 
-
 class Bitrot(object):
     def __init__(
         self, verbosity=1, email = False, log = False, test=0, follow_links=False, commit_interval=300,
@@ -289,9 +288,12 @@ class Bitrot(object):
         renamed_paths = []
         errors = []
         emails = []
+        emails.append([])
+        emails.append([])
         tooOldList = []
         warnings = []
         current_size = 0
+                
         missing_paths = self.select_all_paths(cur)
         #if self.include_list:
         #    paths = [line.rstrip('\n').encode(FSENCODING)
@@ -385,9 +387,6 @@ class Bitrot(object):
                 continue
             stored_mtime, stored_hash, stored_ts = row
 
-
-
-
             if (int(stored_mtime) != new_mtime) and not (self.test >= 2):
                 updated_paths.append(p)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
@@ -397,9 +396,7 @@ class Bitrot(object):
                 continue
             if stored_hash != new_hash:
                 errors.append(p)
-                
-                emails.append([])
-                emails.append([])
+
                 emails[FIMErrorCounter].append(self.hashing_function)
                 emails[FIMErrorCounter].append(p.decode(FSENCODING))
                 emails[FIMErrorCounter].append(stored_hash)
@@ -429,7 +426,7 @@ class Bitrot(object):
                     emailToSendString +="Error {} mismatch for {} \nExpected {}\nGot:          {}\n".format(emails[i][0],emails[i][1],emails[i][2],emails[i][3])
                     emailToSendString +="Last good hash checked on {}\n\n".format(emails[i][4])
                 sendMail(emailToSendString,log=self.log,verbosity=self.verbosity, subject="FIM Error")
-
+            
         for path in missing_paths:
             cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
 
@@ -511,7 +508,6 @@ class Bitrot(object):
         sys.stdout.write(size_fmt + ' ' + current_path)
         sys.stdout.flush()
         self._last_reported_size = size_fmt
-
 
     def report_done(
         self, total_size, all_count, error_count, warning_count, new_paths, updated_paths,
@@ -609,7 +605,6 @@ class Bitrot(object):
                             print("  {}".format(row))
                             if (self.log):
                                 writeToLog("  \n{}".format(row))
-
 
             if new_paths:
                 if (len(new_paths) == 1):
@@ -723,7 +718,6 @@ class Bitrot(object):
 def get_path(directory=b'.', ext=b'db'):
     """Compose the path to the selected bitrot file."""
     return os.path.join(directory, b'.bitrot.' + ext)
-
 
 def stable_sum(bitrot_db=None):
     """Calculates a stable SHA512 of all entries in the database.
@@ -930,7 +924,6 @@ def pathStripper(pathToStrip="",sfv=""):
     if (sfv == "MD5"):
         pathToStripString = "*" + pathToStripString
     return pathToStripString
-
 
 def run_from_command_line():
     global FSENCODING
