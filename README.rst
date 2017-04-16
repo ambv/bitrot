@@ -60,6 +60,8 @@ Change Log
 * Better warning printing
 * Integrates benshep's and liloman's latest changes
 * Can now include and exclude at same time, and fixed logic. Exclude takes prescendence
+* Now prints out ignored files at the end
+* Added option to allow testing of only last 3 days of recently modified data (great for checking a backup you just synced)
 
 0.9.2
 ~~~~~
