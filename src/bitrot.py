@@ -42,7 +42,7 @@ import smtplib
 from fnmatch import fnmatch
 import email.utils
 from email.mime.text import MIMEText
-from datetime import timedelta
+#from datetime import timedelta
 import binascii
 #import re
 
@@ -211,20 +211,6 @@ def list_existing_paths(directory, expected=(), ignored=(), included=(),
                 include_this = [fnmatch(file.encode(FSENCODING), wildcard) 
                                 for file in p.decode(FSENCODING).split(os.path.sep)
                                 for wildcard in included]                
-              #  if included:
-              #      if  any(include_this) or any([fnmatch(p, exc) for exc in included]):
-              #          print("Found good shit: {}".format(p.decode(FSENCODING)))
-              #      else:
-              #          if verbosity > 2:
-              #              #print('Ignoring file: {}'.format(p))
-              #             print('Ignoring file: {}'.format(p.decode(FSENCODING)))
-              #             if (log):
-              #                  #writeToLog(stringToWrite="\nIgnoring file: {}".format(p))
-              #                  writeToLog(stringToWrite="\nIgnoring file: {}".format(p.decode(FSENCODING)))
-              #          continue
-              #  if ((included) and (not any([fnmatch(p, exc) for exc in included]) or not any(include_this))):
-              #      print("Found bad shit: {}".format(p.decode(FSENCODING)))
-              #      return
 
                 if not stat.S_ISREG(st.st_mode) or any(exclude_this) or any([fnmatch(p, exc) for exc in ignored]) or (included and not any([fnmatch(p, exc) for exc in included]) and not any(include_this)):
                 #if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
@@ -384,6 +370,8 @@ class Bitrot(object):
                     missing_paths.discard(stored_path)
                 continue
             stored_mtime, stored_hash, stored_ts = row
+
+        
             if (int(stored_mtime) != new_mtime) and (self.no_time == False):
                 updated_paths.append(p)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
@@ -984,9 +972,15 @@ def run_from_command_line():
                     writeToLog(stringToWrite='======================================================\n')
                 writeToLog(stringToWrite='Log started at ')
                 writeToLog(stringToWrite=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+
+        no_time = False
+        test = False 
         if args.no_time:
-            no_time = 1
-            args.test = 1
+            no_time = True
+            test = True
+        elif args.test:
+            test = True
+
         if args.include_list == '-':
             if verbosity:
                 print('Using stdin for file list')
@@ -1067,10 +1061,10 @@ def run_from_command_line():
         bt = Bitrot(
             verbosity=verbosity,
             hashing_function=hashing_function,
-            test=args.test,
+            test=test,
             email=args.email,
             log = args.log,
-            no_time = args.no_time,
+            no_time = no_time,
             follow_links=args.follow_links,
             commit_interval=args.commit_interval,
             chunk_size=args.chunk_size,
