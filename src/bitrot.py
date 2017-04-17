@@ -606,6 +606,7 @@ class Bitrot(object):
                             if (self.log):
                                 writeToLog("  \n{}".format(row))
 
+        if self.verbosity >= 2:
             if new_paths:
                 if (len(new_paths) == 1):
                     print('\n1 new entry:')
@@ -677,12 +678,14 @@ class Bitrot(object):
                     if (self.log):
                         writeToLog(stringToWrite='\n {}'.format(path))
                         
-            if not any((new_paths, updated_paths, missing_paths, renamed_paths)):
-                print()
+        if any((new_paths, updated_paths, missing_paths, renamed_paths, ignoredList, tooOldList)):
+            if (self.log):
+                writeToLog(stringToWrite='\n')
+
         if self.test and self.verbosity:
             print('\nDatabase file not updated on disk (test mode).')
             if (self.log):
-                writeToLog(stringToWrite='\n\nDatabase file not updated on disk (test mode).')
+                writeToLog(stringToWrite='\nDatabase file not updated on disk (test mode).')
 
     def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1):
         """Either add a new entry to the database or update the existing entry
