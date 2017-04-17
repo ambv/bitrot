@@ -288,8 +288,6 @@ class Bitrot(object):
         renamed_paths = []
         errors = []
         emails = []
-        emails.append([])
-        emails.append([])
         tooOldList = []
         warnings = []
         current_size = 0
@@ -396,7 +394,8 @@ class Bitrot(object):
                 continue
             if stored_hash != new_hash:
                 errors.append(p)
-
+                emails.append([])
+                emails.append([])
                 emails[FIMErrorCounter].append(self.hashing_function)
                 emails[FIMErrorCounter].append(p.decode(FSENCODING))
                 emails[FIMErrorCounter].append(stored_hash)
