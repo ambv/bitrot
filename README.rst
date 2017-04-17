@@ -62,6 +62,8 @@ Change Log
 * Can now include and exclude at same time, and fixed logic. Exclude takes prescendence
 * Now prints out ignored files at the end
 * Added option to allow testing of only last 3 days of recently modified data (great for checking a backup you just synced)
+* Fixed bug when file doesn't have a valid modification timestamp
+* Can now fix files that have invalid modification date, and rename files/dirs that have bad chars in name, using -f
 
 0.9.2
 ~~~~~
