@@ -372,24 +372,19 @@ class Bitrot(object):
         current_size = 0
                 
         missing_paths = self.select_all_paths(cur)
-        #if self.include_list:
-        #    paths = [line.rstrip('\n').encode(FSENCODING)
-        #        for line in self.include_list.readlines()]
-        #    total_size = sum([os.path.getsize(filename) for filename in paths])
-        #else:
 
        
 
-        if (self.fix == True):
-            fixedRenameList, fixedRenameCounter = fix_existing_paths(
-            os.getcwd(),# pass an unambiguous string instead of: b'.'  
-            verbosity=self.verbosity,
-            log=self.log,
-            fix=self.fix,
-            warnings=warnings,
-            fixedRenameList = fixedRenameList,
-            fixedRenameCounter = fixedRenameCounter
-        )
+        # if (self.fix == True):
+        #     fixedRenameList, fixedRenameCounter = fix_existing_paths(
+        #     os.getcwd(),# pass an unambiguous string instead of: b'.'  
+        #     verbosity=self.verbosity,
+        #     log=self.log,
+        #     fix=self.fix,
+        #     warnings=warnings,
+        #     fixedRenameList = fixedRenameList,
+        #     fixedRenameCounter = fixedRenameCounter
+        # )
 
 
         paths, total_size, ignoredList = list_existing_paths(
@@ -469,7 +464,7 @@ class Bitrot(object):
                     tooOldList.append(p_uni)
                     missing_paths.discard(p_uni)
                     total_size -= st.st_size
-                continue
+                    continue
 
             current_size += st.st_size
             if self.verbosity:
