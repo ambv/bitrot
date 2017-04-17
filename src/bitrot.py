@@ -132,6 +132,14 @@ def cleanString(stringToClean=""):
     stringToClean = ''.join([x for x in stringToClean if ord(x) < 128])
     return stringToClean
 
+def isDirtyString(stringToCheck=""):
+    comparisonString = stringToCheck
+    cleanedString = ''.join([x for x in stringToCheck if ord(x) < 128])
+    if (cleanedString == comparisonString):
+        return False
+    else:
+        return True
+
 def ts():
     return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S%z')
 
@@ -165,8 +173,94 @@ def get_sqlite3_cursor(path, copy=False):
     atexit.register(conn.commit)
     return conn
 
+def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
+
+    paths = []
+    #Do the directories first
+    for path, _, files in os.walk(directory):
+        try:
+            p_uni = path.decode(FSENCODING)
+            p_uniBackup = p_uni
+        except UnicodeDecodeError:
+            binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
+            warnings.append(p)
+            binary_stderr.write(b"\rWarning: cannot decode directory name: ")
+            binary_stderr.write(p)
+            binary_stderr.write(b"\n")
+            if (log):
+                writeToLog(stringToWrite="\nWarning: cannot decode directory name: {}".format(p))
+            continue
+
+        if (isDirtyString(p_uni)):
+            try:
+                os.rename(p_uni, cleanString(p_uni))
+                p_uni = cleanString(p_uni)
+            except Exception as ex:
+                warnings.append(p)
+                print(
+                    '\rCan\'t rename: `{}` due to warning: `{}`'.format(
+                        p,ex,
+                    ),
+                    file=sys.stderr,
+                )
+                if (log):
+                    writeToLog(stringToWrite='\rCan\'t rename: `{}` due to warning: `{}`'.format(p,ex))
+                continue
+            else:
+                fixedRenameList.append([])
+                fixedRenameList.append([])
+                fixedRenameList[fixedRenameCounter].append(p_uniBackup)
+                fixedRenameList[fixedRenameCounter].append(p_uni)
+                fixedRenameCounter += 1
+
+
+
+    #Then do the files
+    for path, _, files in os.walk(directory):
+        for f in files:
+            p = os.path.join(path, f)
+            try:
+                p_uni = p.decode(FSENCODING)
+                p_uniBackup = p_uni
+            except UnicodeDecodeError:
+                binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
+                warnings.append(p)
+                binary_stderr.write(b"\rWarning: cannot decode file name: ")
+                binary_stderr.write(p)
+                binary_stderr.write(b"\n")
+                if (log):
+                    writeToLog(stringToWrite="\nWarning: cannot decode file name: {}".format(p))
+                continue
+
+            if (fix == True):
+                if (isDirtyString(p_uni)):
+                    try:
+                        os.rename(p_uni, cleanString(p_uni))
+                        p_uni = cleanString(p_uni)
+                    except Exception as ex:
+                        warnings.append(p)
+                        print(
+                            '\rCan\'t rename: {} due to warning: `{}`'.format(
+                                p,ex,
+                            ),
+                            file=sys.stderr,
+                        )
+                        if (log):
+                            writeToLog(stringToWrite='\rCan\'t rename: {} due to warning: `{}`'.format(p,ex))
+                        continue
+                    else:
+                        fixedRenameList.append([])
+                        fixedRenameList.append([])
+                        fixedRenameList[fixedRenameCounter].append(p_uniBackup)
+                        fixedRenameList[fixedRenameCounter].append(p_uni)
+                        fixedRenameCounter += 1
+
+    return fixedRenameList, fixedRenameCounter
+
+
+
 def list_existing_paths(directory, expected=(), ignored=(), included=(), 
-                        verbosity=1, follow_links=False, log=1):
+                        verbosity=1, follow_links=False, log=1, fix=False, warnings = ()):
     """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
 
     Returns a tuple with a list with existing files in `directory` and their
@@ -235,7 +329,7 @@ class BitrotException(Exception):
 class Bitrot(object):
     def __init__(
         self, verbosity=1, email = False, log = False, test=0, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], hashing_function="", sfv="MD5"
+        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], hashing_function="", sfv="MD5", fix=False
     ):
         self.verbosity = verbosity
         self.test = test
@@ -251,6 +345,7 @@ class Bitrot(object):
         self.startTime = time.time()
         self.hashing_function = hashing_function
         self.sfv = sfv
+        self.fix = fix
 
     def maybe_commit(self, conn):
         if time.time() < self._last_commit_ts + self.commit_interval:
@@ -290,6 +385,10 @@ class Bitrot(object):
         emails = []
         tooOldList = []
         warnings = []
+        fixedRenameList = []
+        fixedRenameCounter = 0
+        fixedPropertiesList = []
+        fixedPropertiesCounter = 0
         current_size = 0
                 
         missing_paths = self.select_all_paths(cur)
@@ -298,13 +397,29 @@ class Bitrot(object):
         #        for line in self.include_list.readlines()]
         #    total_size = sum([os.path.getsize(filename) for filename in paths])
         #else:
+
+        if (self.fix == True):
+            fixedRenameList, fixedRenameCounter = fix_existing_paths(
+            b'.',
+            verbosity=self.verbosity,
+            log=self.log,
+            fix=self.fix,
+            warnings=warnings,
+            fixedRenameList = fixedRenameList,
+            fixedRenameCounter = fixedRenameCounter
+        )
+
+
         paths, total_size, ignoredList = list_existing_paths(
-            b'.', expected=missing_paths, 
+            b'.', 
+            expected=missing_paths, 
             ignored=[bitrot_db, bitrot_sha512,bitrot_log,bitrot_sfv,bitrot_md5] + self.exclude_list,
             included=self.include_list,
             follow_links=self.follow_links,
             verbosity=self.verbosity,
-            log=self.log
+            log=self.log,
+            fix=self.fix,
+            warnings=warnings,
 
         )
 
@@ -336,15 +451,38 @@ class Bitrot(object):
 
             new_mtime = int(st.st_mtime)
 
-            if (self.test >= 3):
-                a = datetime.datetime.now()
+            a = datetime.datetime.now()
+
+            if not (new_mtime):
+                if (self.fix):
+                    nowTime = time.mktime(a.timetuple())
+                    os.utime(p, (nowTime,nowTime))
+                    fixedPropertiesList.append([])
+                    fixedPropertiesList.append([])
+                    fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
+                    fixedPropertiesCounter += 1
+                else:
+                    try:
+                        b = datetime.datetime.fromtimestamp(new_mtime)
+                    except Exception as ex:
+                        warnings.append(p)
+                        print(
+                            '\rWarning: `{}` has an invalid modification date. Try running with -f to fix.Received error: {}'.format(
+                                p.decode(FSENCODING), ex,
+                            ),
+                            file=sys.stderr,
+                        )
+                        if (self.log):
+                            writeToLog(stringToWrite='\nWarning: `{}` has an invalid modification date. Try running with -f to fix. Received error: {}'.format(p.decode(FSENCODING), ex))
+            else:
                 b = datetime.datetime.fromtimestamp(new_mtime)
+            if (self.test >= 3):
                 delta = a - b
                 if (delta.days >= RECENT):
                     tooOldList.append(p_uni)
                     missing_paths.discard(p_uni)
                     total_size -= st.st_size
-                    continue
+                continue
 
             current_size += st.st_size
             if self.verbosity:
@@ -431,6 +569,7 @@ class Bitrot(object):
 
         conn.commit()
 
+
         if self.verbosity:
             cur.execute('SELECT COUNT(path) FROM bitrot')
             all_count = cur.fetchone()[0]
@@ -445,7 +584,13 @@ class Bitrot(object):
                 missing_paths,
                 tooOldList,
                 ignoredList,
+                fixedRenameList,
+                fixedRenameCounter,
+                fixedPropertiesList,
+                fixedPropertiesCounter,
             )
+
+
 
         update_sha512_integrity(verbosity=self.verbosity, log=self.log)
 
@@ -510,10 +655,11 @@ class Bitrot(object):
 
     def report_done(
         self, total_size, all_count, error_count, warning_count, new_paths, updated_paths,
-        renamed_paths, missing_paths, tooOldList, ignoredList):
+        renamed_paths, missing_paths, tooOldList, ignoredList, fixedRenameList, fixedRenameCounter,
+        fixedPropertiesList, fixedPropertiesCounter):
 
         sizeUnits , total_size = calculateUnits(total_size=total_size)
-
+        totalFixed = fixedRenameCounter + fixedPropertiesCounter
         if (error_count == 1):
                 print('\rFinished. {:.2f} {} of data read. 1 error found. '.format(total_size,sizeUnits),end="")
                 if (self.log):
@@ -536,27 +682,27 @@ class Bitrot(object):
             if (all_count == 1):
                 print(
                     '1 entry in the database, {} new, {} updated, '
-                    '{} renamed, {} missing.'.format(
+                    '{} renamed, {} missing, {} fixed.'.format(
                         len(new_paths), len(updated_paths),
-                        len(renamed_paths), len(missing_paths)))
+                        len(renamed_paths), len(missing_paths), totalFixed))
                 if (self.log):
                     writeToLog(stringToWrite=
                     '\n1 entry in the database, {} new, {} updated, '
-                    '{} renamed, {} missing.'.format(
+                    '{} renamed, {} missing, {} fixed'.format(
                         len(new_paths), len(updated_paths),
-                        len(renamed_paths), len(missing_paths)))
+                        len(renamed_paths), len(missing_paths), totalFixed))
             else:
                 print(
                 '{} entries in the database, {} new, {} updated, '
-                '{} renamed, {} missing.'.format(
+                '{} renamed, {} missing, {} fixed.'.format(
                     all_count, len(new_paths), len(updated_paths),
-                    len(renamed_paths), len(missing_paths)))
+                    len(renamed_paths), len(missing_paths), totalFixed))
                 if (self.log):
                     writeToLog(stringToWrite=
                     '\n{} entries in the database, {} new, {} updated, '
-                    '{} renamed, {} missing.'.format(
+                    '{} renamed, {} missing, {} fixed.'.format(
                         all_count, len(new_paths), len(updated_paths),
-                        len(renamed_paths), len(missing_paths)))
+                        len(renamed_paths), len(missing_paths), totalFixed))
 
         elif self.verbosity > 1:
             if (all_count == 1):
@@ -676,6 +822,37 @@ class Bitrot(object):
                     print(' ', path)
                     if (self.log):
                         writeToLog(stringToWrite='\n {}'.format(path))
+
+            if fixedRenameList:
+                if (len(fixedRenameList) == 1):
+                    print('\n1 filename fixed:')
+                    if (self.log):
+                        writeToLog(stringToWrite='\n\n1 filename fixed:')
+                else:
+                    print('\n{} filenames fixed:'.format(fixedRenameCounter))
+                    if (self.log):
+                        writeToLog(stringToWrite='\n\n{} filenames fixed:'.format(fixedRenameCounter))
+
+                for i in range(0, fixedRenameCounter):
+                    print('  renamed `{}` to `{}`'.format(fixedRenameList[i][0],fixedRenameList[i][1]))
+                    if (self.log):
+                        writeToLog(stringToWrite='\n  `{}` to `{}`'.format(fixedRenameList[i][0],fixedRenameList[i][1]))
+           
+            if fixedPropertiesList:
+                if (len(fixedPropertiesList) == 1):
+                    print('\n1 file property fixed:')
+                    if (self.log):
+                        writeToLog(stringToWrite='\n\n1 file property fixed:')
+                else:
+                    print('\n{} file properties fixed:'.format(fixedPropertiesCounter))
+                    if (self.log):
+                        writeToLog(stringToWrite='\n\n{} file properties fixed:'.format(fixedPropertiesCounter))
+
+                for i in range(0, fixedPropertiesCounter):
+                    print('  Added missing modification time to {}'.format(fixedPropertiesList[i][0]))
+                    if (self.log):
+                        writeToLog(stringToWrite='  Added missing modification time to {}'.format(fixedPropertiesList[i][0]))
+            
                         
         if any((new_paths, updated_paths, missing_paths, renamed_paths, ignoredList, tooOldList)):
             if (self.log):
@@ -1003,6 +1180,9 @@ def run_from_command_line():
     parser.add_argument(
         '-c', '--sfv', default='',
         help='Also generates an MD5 or SFV file when given either of these as a parameter')
+    parser.add_argument(
+        '-f', '--fix', action='store_true',
+        help='Fixes files by removing invalid characters and adding missing modification times')
 
     args = parser.parse_args()
     if args.sum:
@@ -1144,17 +1324,18 @@ def run_from_command_line():
             pass
 
         bt = Bitrot(
-            verbosity=verbosity,
-            hashing_function=hashing_function,
-            test=test,
-            email=args.email,
+            verbosity = verbosity,
+            hashing_function = hashing_function,
+            test = test,
+            email = args.email,
             log = args.log,
-            follow_links=args.follow_links,
-            commit_interval=args.commit_interval,
-            chunk_size=args.chunk_size,
-            include_list=include_list,
-            exclude_list=exclude_list,
-            sfv=sfv,
+            follow_links = args.follow_links,
+            commit_interval = args.commit_interval,
+            chunk_size = args.chunk_size,
+            include_list = include_list,
+            exclude_list = exclude_list,
+            sfv = sfv,
+            fix = args.fix,
         )
         if args.fsencoding:
             FSENCODING = args.fsencoding
