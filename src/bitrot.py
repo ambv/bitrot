@@ -29,6 +29,7 @@ from __future__ import unicode_literals
 import argparse
 import atexit
 import datetime
+#from datetime import timedelta
 import errno
 import hashlib
 import os
@@ -42,7 +43,6 @@ import smtplib
 from fnmatch import fnmatch
 import email.utils
 from email.mime.text import MIMEText
-#from datetime import timedelta
 import binascii
 #import re
 
@@ -134,7 +134,7 @@ def cleanString(stringToClean=""):
 
 def isDirtyString(stringToCheck=""):
     comparisonString = stringToCheck
-    cleanedString = ''.join([x for x in stringToCheck if ord(x) < 128])
+    cleanedString = cleanString(stringToCheck)
     if (cleanedString == comparisonString):
         return False
     else:
@@ -173,91 +173,70 @@ def get_sqlite3_cursor(path, copy=False):
     atexit.register(conn.commit)
     return conn
 
+
 def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
+#   Use os.getcwd() instead of "." since it doesn't seem to be resolved the way you want. This will be illustrated in the diagnostics function.
+#   Use relative path renaming by os.chdir(root). Of course using correct absolute paths also works, but IMHO relative paths are just more elegant.
+#   Pass an unambiguous string into os.walk() as others have mentioned.
+#   Also note that topdown=False in os.walk() doesn't matter. Since you are not renaming directories, the directory structure will be invariant during os.walk().
 
-    paths = []
-    #Do the directories first
-    for path, _, files in os.walk(directory):
-        try:
-            p_uni = path.decode(FSENCODING)
-            p_uniBackup = p_uni
-        except UnicodeDecodeError:
-            binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
-            warnings.append(p)
-            binary_stderr.write(b"\rWarning: cannot decode directory name: ")
-            binary_stderr.write(p)
-            binary_stderr.write(b"\n")
-            if (log):
-                writeToLog(stringToWrite="\nWarning: cannot decode directory name: {}".format(p))
-            continue
-
-        if (isDirtyString(p_uni)):
-            try:
-                os.rename(p_uni, cleanString(p_uni))
-                p_uni = cleanString(p_uni)
-            except Exception as ex:
-                warnings.append(p)
-                print(
-                    '\rCan\'t rename: `{}` due to warning: `{}`'.format(
-                        p,ex,
-                    ),
-                    file=sys.stderr,
-                )
-                if (log):
-                    writeToLog(stringToWrite='\rCan\'t rename: `{}` due to warning: `{}`'.format(p,ex))
-                continue
-            else:
-                fixedRenameList.append([])
-                fixedRenameList.append([])
-                fixedRenameList[fixedRenameCounter].append(p_uniBackup)
-                fixedRenameList[fixedRenameCounter].append(p_uni)
-                fixedRenameCounter += 1
-
-
-
-    #Then do the files
-    for path, _, files in os.walk(directory):
+    for root, dirs, files in os.walk(directory, topdown=False):
         for f in files:
-            p = os.path.join(path, f)
-            try:
-                p_uni = p.decode(FSENCODING)
-                p_uniBackup = p_uni
-            except UnicodeDecodeError:
-                binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
-                warnings.append(p)
-                binary_stderr.write(b"\rWarning: cannot decode file name: ")
-                binary_stderr.write(p)
-                binary_stderr.write(b"\n")
-                if (log):
-                    writeToLog(stringToWrite="\nWarning: cannot decode file name: {}".format(p))
-                continue
 
-            if (fix == True):
-                if (isDirtyString(p_uni)):
-                    try:
-                        os.rename(p_uni, cleanString(p_uni))
-                        p_uni = cleanString(p_uni)
-                    except Exception as ex:
-                        warnings.append(p)
-                        print(
-                            '\rCan\'t rename: {} due to warning: `{}`'.format(
-                                p,ex,
-                            ),
-                            file=sys.stderr,
-                        )
-                        if (log):
-                            writeToLog(stringToWrite='\rCan\'t rename: {} due to warning: `{}`'.format(p,ex))
-                        continue
-                    else:
-                        fixedRenameList.append([])
-                        fixedRenameList.append([])
-                        fixedRenameList[fixedRenameCounter].append(p_uniBackup)
-                        fixedRenameList[fixedRenameCounter].append(p_uni)
-                        fixedRenameCounter += 1
+            if (isDirtyString(f)):
+                try:
+                    # chdir before renaming
+                    #os.chdir(root)
+                    #fullfilename=os.path.abspath(f)
+                    #os.rename(f, cleanString(f))  # relative path, more elegant
+                    os.rename(os.path.join(root, f), os.path.join(root, cleanString(f)))
+                    p_uni = cleanString(f)
+                    writeToLog("Test")
+                except Exception as ex:
+                    warnings.append(f)
+                    print(
+                        '\rCan\'t rename: {} due to warning: `{}`'.format(
+                            f,ex,
+                        ),
+                        file=sys.stderr,
+                    )
+                    if (log):
+                        writeToLog(stringToWrite='\rCan\'t rename: {} due to warning: `{}`'.format(f,ex))
+                    continue
+                else:
+                    fixedRenameList.append([])
+                    fixedRenameList.append([])
+                    fixedRenameList[fixedRenameCounter].append(f)
+                    fixedRenameList[fixedRenameCounter].append(f)
+                    fixedRenameCounter += 1
 
+        for d in dirs:
+            if (isDirtyString(d)):
+                try:
+                    # chdir before renaming
+                    #os.chdir(root)
+                    #fullfilename=os.path.abspath(d)
+                    os.rename(os.path.join(root, d), os.path.join(root, cleanString(d)))
+                    #os.rename(d, cleanString(d))  # relative path, more elegant
+                    p_uni = cleanString(d)
+                except Exception as ex:
+                    warnings.append(d)
+                    print(
+                        '\rCan\'t rename: {} due to warning: `{}`'.format(
+                            d,ex,
+                        ),
+                        file=sys.stderr,
+                    )
+                    if (log):
+                        writeToLog(stringToWrite='\rCan\'t rename: {} due to warning: `{}`'.format(d,ex))
+                    continue
+                else:
+                    fixedRenameList.append([])
+                    fixedRenameList.append([])
+                    fixedRenameList[fixedRenameCounter].append(d)
+                    fixedRenameList[fixedRenameCounter].append(d)
+                    fixedRenameCounter += 1
     return fixedRenameList, fixedRenameCounter
-
-
 
 def list_existing_paths(directory, expected=(), ignored=(), included=(), 
                         verbosity=1, follow_links=False, log=1, fix=False, warnings = ()):
@@ -363,6 +342,7 @@ class Bitrot(object):
         bitrot_db = get_path()
         bitrot_sfv = get_path(ext=b'sfv')
         bitrot_md5 = get_path(ext=b'md5')
+
         #bitrot_db = os.path.basename(get_path())
         #bitrot_sha512 = os.path.basename(get_path(ext=b'sha512'))
         #bitrot_log = os.path.basename(get_path(ext=b'log'))
@@ -398,9 +378,11 @@ class Bitrot(object):
         #    total_size = sum([os.path.getsize(filename) for filename in paths])
         #else:
 
+       
+
         if (self.fix == True):
             fixedRenameList, fixedRenameCounter = fix_existing_paths(
-            b'.',
+            os.getcwd(),# pass an unambiguous string instead of: b'.'  
             verbosity=self.verbosity,
             log=self.log,
             fix=self.fix,
@@ -450,13 +432,18 @@ class Bitrot(object):
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
 
             new_mtime = int(st.st_mtime)
-
+            new_atime = int(st.st_atime)
             a = datetime.datetime.now()
 
             if not (new_mtime):
                 if (self.fix):
                     nowTime = time.mktime(a.timetuple())
-                    os.utime(p, (nowTime,nowTime))
+                    if not (new_atime):
+                        #Accessed time was also bad
+                        print("doom")
+                        os.utime(p, (nowTime,nowTime))
+                    else:
+                        os.utime(p, (new_atime,nowTime))
                     fixedPropertiesList.append([])
                     fixedPropertiesList.append([])
                     fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
