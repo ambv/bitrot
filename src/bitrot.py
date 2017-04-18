@@ -1216,9 +1216,9 @@ def run_from_command_line():
             include_list = []
         if args.exclude_list:
             if verbosity:
-                print('Opening exclude list in', args.exclude_list)
+                print('Opening file exclusion list at', args.exclude_list)
                 if (args.log):
-                    writeToLog(stringToWrite='\nOpening exclude list in')
+                    writeToLog(stringToWrite='\nOpening file exclusion list at')
                     writeToLog(stringToWrite=args.exclude_list)
             exclude_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.exclude_list)]
         else:
