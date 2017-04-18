@@ -195,12 +195,12 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                     warnings.append(f)
                     print(
                         '\rCan\'t rename: {} due to warning: `{}`'.format(
-                            f,ex,
+                            os.path.join(root, f),ex,
                         ),
                         file=sys.stderr,
                     )
                     if (log):
-                        writeToLog(stringToWrite='\rCan\'t rename: {} due to warning: `{}`'.format(f,ex))
+                        writeToLog(stringToWrite='\rCan\'t rename: {} due to warning: `{}`'.format(os.path.join(root, f),ex))
                     continue
                 else:
                     fixedRenameList.append([])
@@ -222,12 +222,12 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                     warnings.append(d)
                     print(
                         '\rCan\'t rename: {} due to warning: `{}`'.format(
-                            d,ex,
+                            os.path.join(root, d),ex,
                         ),
                         file=sys.stderr,
                     )
                     if (log):
-                        writeToLog(stringToWrite='\rCan\'t rename: {} due to warning: `{}`'.format(d,ex))
+                        writeToLog(stringToWrite='\rCan\'t rename: {} due to warning: `{}`'.format(os.path.join(root, d),ex))
                     continue
                 else:
                     fixedRenameList.append([])
@@ -693,7 +693,7 @@ class Bitrot(object):
                 if (self.log):
                     writeToLog(stringToWrite='\n{} entries in the database.'.format(all_count))
 
-        if self.verbosity >= 3:
+        if self.verbosity >= 4:
             if (ignoredList):
                 if (len(ignoredList) == 1):
                     print("\n1 files excluded: ")
@@ -730,7 +730,7 @@ class Bitrot(object):
                             if (self.log):
                                 writeToLog("  \n{}".format(row))
 
-        if self.verbosity >= 2:
+        if self.verbosity >= 3:
             if new_paths:
                 if (len(new_paths) == 1):
                     print('\n1 new entry:')
@@ -786,6 +786,7 @@ class Bitrot(object):
                     if (self.log):
                         writeToLog(stringToWrite='\n from {} to {}'.format(path[0],path[1]))
                     
+        if self.verbosity >= 2:
             if missing_paths:
                 if (len(missing_paths) == 1):
                     print('\n1 entry missing:')
@@ -833,9 +834,9 @@ class Bitrot(object):
                         writeToLog(stringToWrite='  Added missing modification time to {}'.format(fixedPropertiesList[i][0]))
             
                         
-        #if any((new_paths, updated_paths, missing_paths, renamed_paths, ignoredList, tooOldList)):
-        #    if (self.log):
-        #        writeToLog(stringToWrite='\n')
+        if any((new_paths, updated_paths, missing_paths, renamed_paths, ignoredList, tooOldList)):
+            if (self.log):
+                writeToLog(stringToWrite='\n')
 
         if self.test and self.verbosity:
             print('\nDatabase file not updated on disk (test mode).')
@@ -1148,8 +1149,9 @@ def run_from_command_line():
         '-v', '--verbose', default=1,
         help='Level 0: Don\'t print anything besides checksum errors.\n'
         'Level 1: Normal amount of verbosity.\n'
-        'Level 2: List new, updated and missing entries.\n'
-        'Level 3: List new, updated and missing entries, and ignored files.\n')
+        'Level 2: List missing, and fixed entries.\n'
+        'Level 3: List missing, fixed, new, renamed, and updated entries.\n'
+        'Level 4: List missing, fixed, new, renamed, and updated entries, and ignored files.\n')
     parser.add_argument(
         '-e', '--email', action='store_true',
         help='email file integirty errors')
@@ -1180,7 +1182,7 @@ def run_from_command_line():
                      writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
                 verbosity = 1
                 pass
-            if (verbosity != 0 and verbosity != 1 and verbosity != 2 and verbosity != 3):
+            if (verbosity != 0 and verbosity != 1 and verbosity != 2 and verbosity != 3 and verbosity != 4):
                 print("Invalid verbosity option selected: {}. Using default level 1.".format(args.verbose))
                 if (args.log):
                      writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
