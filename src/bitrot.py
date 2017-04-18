@@ -189,6 +189,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                     #os.chdir(root)
                     #fullfilename=os.path.abspath(f)
                     #os.rename(f, cleanString(f))  # relative path, more elegant
+                    p_uniBackup = f
                     os.rename(os.path.join(root, f), os.path.join(root, cleanString(f)))
                     p_uni = cleanString(f)
                 except Exception as ex:
@@ -205,7 +206,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                 else:
                     fixedRenameList.append([])
                     fixedRenameList.append([])
-                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, f))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, cleanString(f)))
                     fixedRenameCounter += 1
 
@@ -215,6 +216,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                     # chdir before renaming
                     #os.chdir(root)
                     #fullfilename=os.path.abspath(d)
+                    p_uniBackup = d
                     os.rename(os.path.join(root, d), os.path.join(root, cleanString(d)))
                     #os.rename(d, cleanString(d))  # relative path, more elegant
                     p_uni = cleanString(d)
@@ -232,7 +234,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                 else:
                     fixedRenameList.append([])
                     fixedRenameList.append([])
-                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, d))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, cleanString(d)))
                     fixedRenameCounter += 1
     return fixedRenameList, fixedRenameCounter
