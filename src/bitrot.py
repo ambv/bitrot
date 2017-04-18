@@ -191,7 +191,6 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                     #os.rename(f, cleanString(f))  # relative path, more elegant
                     os.rename(os.path.join(root, f), os.path.join(root, cleanString(f)))
                     p_uni = cleanString(f)
-                    writeToLog("Test")
                 except Exception as ex:
                     warnings.append(f)
                     print(
@@ -206,8 +205,8 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                 else:
                     fixedRenameList.append([])
                     fixedRenameList.append([])
-                    fixedRenameList[fixedRenameCounter].append(f)
-                    fixedRenameList[fixedRenameCounter].append(f)
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, f))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, cleanString(f)))
                     fixedRenameCounter += 1
 
         for d in dirs:
@@ -233,8 +232,8 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                 else:
                     fixedRenameList.append([])
                     fixedRenameList.append([])
-                    fixedRenameList[fixedRenameCounter].append(d)
-                    fixedRenameList[fixedRenameCounter].append(d)
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, d))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, cleanString(d)))
                     fixedRenameCounter += 1
     return fixedRenameList, fixedRenameCounter
 
@@ -373,18 +372,16 @@ class Bitrot(object):
                 
         missing_paths = self.select_all_paths(cur)
 
-       
-
-        # if (self.fix == True):
-        #     fixedRenameList, fixedRenameCounter = fix_existing_paths(
-        #     os.getcwd(),# pass an unambiguous string instead of: b'.'  
-        #     verbosity=self.verbosity,
-        #     log=self.log,
-        #     fix=self.fix,
-        #     warnings=warnings,
-        #     fixedRenameList = fixedRenameList,
-        #     fixedRenameCounter = fixedRenameCounter
-        # )
+        if (self.fix == True):
+            fixedRenameList, fixedRenameCounter = fix_existing_paths(
+            os.getcwd(),# pass an unambiguous string instead of: b'.'  
+            verbosity=self.verbosity,
+            log=self.log,
+            fix=self.fix,
+            warnings=warnings,
+            fixedRenameList = fixedRenameList,
+            fixedRenameCounter = fixedRenameCounter
+        )
 
 
         paths, total_size, ignoredList = list_existing_paths(
