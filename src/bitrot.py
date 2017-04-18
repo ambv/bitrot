@@ -207,7 +207,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                     fixedRenameList.append([])
                     fixedRenameList.append([])
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
-                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, cleanString(f)))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uni))
                     fixedRenameCounter += 1
 
         for d in dirs:
@@ -235,7 +235,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                     fixedRenameList.append([])
                     fixedRenameList.append([])
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
-                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, cleanString(d)))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uni))
                     fixedRenameCounter += 1
     return fixedRenameList, fixedRenameCounter
 
