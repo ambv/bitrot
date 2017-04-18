@@ -836,9 +836,9 @@ class Bitrot(object):
                         writeToLog(stringToWrite='  Added missing modification time to {}'.format(fixedPropertiesList[i][0]))
             
                         
-        if any((new_paths, updated_paths, missing_paths, renamed_paths, ignoredList, tooOldList)):
-            if (self.log):
-                writeToLog(stringToWrite='\n')
+        #if any((new_paths, updated_paths, missing_paths, renamed_paths, ignoredList, tooOldList)):
+        #    if (self.log):
+        #        writeToLog(stringToWrite='\n')
 
         if self.test and self.verbosity:
             print('\nDatabase file not updated on disk (test mode).')
