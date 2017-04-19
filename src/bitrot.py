@@ -1232,7 +1232,7 @@ def run_from_command_line():
                     writeToLog('======================================================\n')
                 writeToLog('Log started at ')
                 writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
-
+        include_list = []
         if args.include_list == '-':
             if verbosity:
                 print('Using stdin for file list')
@@ -1241,12 +1241,15 @@ def run_from_command_line():
             include_list = sys.stdin
         elif args.include_list:
             if verbosity:
-                print('Opening file inclusion list at `{}`', args.include_list)
+                print('Opening file inclusion list at `{}`'.format(args.include_list))
                 if (args.log):
                     writeToLog('\nOpening file inclusion list at `{}`'.format(args.include_list))
-            #include_list = open(args.include)
             try:
-                include_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.include_list)]
+                #include_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.include_list)]
+                with open(args.include_list) as includeFile:
+                    for line in includeFile:
+                        line = line.rstrip('\n').encode(FSENCODING)
+                        include_list.append(line)
             except Exception as err:
                 if (verbosity):
                     print("Invalid inclusion list specified: `{}`. Not using an inclusion list. Received error: {}".format(args.include_list, err))
@@ -1255,15 +1258,18 @@ def run_from_command_line():
                 include_list = []
         else:
             include_list = []
-
+        exclude_list = []
         if args.exclude_list:
             if verbosity:
-                print('Opening file exclusion list at `{}`', args.exclude_list)
+                print('Opening file exclusion list at `{}`'.format(args.exclude_list))
                 if (args.log):
-                    writeToLog('\nOpening file exclusion list at `{}`')
-                    writeToLog(args.exclude_list)
+                    writeToLog('\nOpening file exclusion list at `{}`'.format(args.exclude_list))
             try:
-                exclude_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.exclude_list)]
+                # exclude_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.exclude_list)]
+                with open(args.exclude_list) as excludeFile:
+                    for line in excludeFile:
+                        line = line.rstrip('\n').encode(FSENCODING)
+                        exclude_list.append(line)
             except Exception as err:
                 if (verbosity):
                     print("Invalid exclusion list specified: `{}`. Not using an exclusion list. Received error: {}".format(args.exclude_list, err))
@@ -1416,8 +1422,11 @@ def run_from_command_line():
                 writeToLog(bre.args[1])
             sys.exit(bre.args[0])
 
-        #if include_list:
-        #    include_list.close() # should be harmless if include_list == sys.stdin
+        if includeFile:
+            includeFile.close() # should be harmless if include_list == sys.stdin
+
+        #if excludeFile:
+            # excludeFile.close() # should be harmless if include_list == sys.stdin
 
 if __name__ == '__main__':
     run_from_command_line()
