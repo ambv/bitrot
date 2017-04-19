@@ -174,7 +174,7 @@ def get_sqlite3_cursor(path, copy=False):
     return conn
 
 
-def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
+def fix_existing_paths(directory, verbosity = 1, log=1, fix=1, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
 #   Use os.getcwd() instead of "." since it doesn't seem to be resolved the way you want. This will be illustrated in the diagnostics function.
 #   Use relative path renaming by os.chdir(root). Of course using correct absolute paths also works, but IMHO relative paths are just more elegant.
 #   Pass an unambiguous string into os.walk() as others have mentioned.
@@ -190,7 +190,8 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                     #fullfilename=os.path.abspath(f)
                     #os.rename(f, cleanString(f))  # relative path, more elegant
                     p_uniBackup = f
-                    os.rename(os.path.join(root, f), os.path.join(root, cleanString(f)))
+                    if (fix >= 2):
+                        os.rename(os.path.join(root, f), os.path.join(root, cleanString(f)))
                     p_uni = cleanString(f)
                 except Exception as ex:
                     warnings.append(f)
@@ -217,7 +218,8 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
                     #os.chdir(root)
                     #fullfilename=os.path.abspath(d)
                     p_uniBackup = d
-                    os.rename(os.path.join(root, d), os.path.join(root, cleanString(d)))
+                    if (fix >= 2):
+                        os.rename(os.path.join(root, d), os.path.join(root, cleanString(d)))
                     #os.rename(d, cleanString(d))  # relative path, more elegant
                     p_uni = cleanString(d)
                 except Exception as ex:
@@ -240,7 +242,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=True, warnings = (),
     return fixedRenameList, fixedRenameCounter
 
 def list_existing_paths(directory, expected=(), ignored=(), included=(), 
-                        verbosity=1, follow_links=False, log=1, fix=False, warnings = ()):
+                        verbosity=1, follow_links=False, log=1, fix=0, warnings = ()):
     """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
 
     Returns a tuple with a list with existing files in `directory` and their
@@ -309,7 +311,7 @@ class BitrotException(Exception):
 class Bitrot(object):
     def __init__(
         self, verbosity=1, email = False, log = False, test=0, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], hashing_function="", sfv="MD5", fix=False
+        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], hashing_function="", sfv="MD5", fix=0
     ):
         self.verbosity = verbosity
         self.test = test
@@ -374,7 +376,7 @@ class Bitrot(object):
                 
         missing_paths = self.select_all_paths(cur)
 
-        if (self.fix == True):
+        if (self.fix >= 1):
             fixedRenameList, fixedRenameCounter = fix_existing_paths(
             os.getcwd(),# pass an unambiguous string instead of: b'.'  
             verbosity=self.verbosity,
@@ -428,38 +430,54 @@ class Bitrot(object):
             new_mtime = int(st.st_mtime)
             new_atime = int(st.st_atime)
             a = datetime.datetime.now()
+            
 
-            if not (new_mtime):
-                if (self.fix):
-                    nowTime = time.mktime(a.timetuple())
-                    if not (new_atime):
+            if (self.fix >= 1):
+                if not new_mtime or not new_atime:
+                        fixedPropertiesList.append([])
+                        fixedPropertiesList.append([])
+                        fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
+                        fixedPropertiesCounter += 1
+                        nowTime = time.mktime(a.timetuple())
+                if (self.fix >= 2):
+                    if not new_mtime and not new_atime:
                         #Accessed time was also bad
-                        print("doom")
                         os.utime(p, (nowTime,nowTime))
-                    else:
+                    elif not (new_mtime):
                         os.utime(p, (new_atime,nowTime))
-                    fixedPropertiesList.append([])
-                    fixedPropertiesList.append([])
-                    fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
-                    fixedPropertiesCounter += 1
-                else:
-                    try:
-                        b = datetime.datetime.fromtimestamp(new_mtime)
-                    except Exception as ex:
-                        warnings.append(p)
-                        print(
-                            '\rWarning: `{}` has an invalid modification date. Try running with -f to fix.Received error: {}'.format(
-                                p.decode(FSENCODING), ex,
-                            ),
-                            file=sys.stderr,
-                        )
-                        if (self.log):
-                            writeToLog(stringToWrite='\nWarning: `{}` has an invalid modification date. Try running with -f to fix. Received error: {}'.format(p.decode(FSENCODING), ex))
-            else:
+                    elif not (new_atime):
+                        os.utime(p, (nowTime,new_mtime))
+                    else:
+                        pass
+            try:
                 b = datetime.datetime.fromtimestamp(new_mtime)
+            except Exception as ex:
+                warnings.append(p)
+                print(
+                    '\rWarning: `{}` has an invalid modification date. Try running with -f to fix.Received error: {}'.format(
+                        p.decode(FSENCODING), ex,
+                    ),
+                    file=sys.stderr,
+                )
+                if (self.log):
+                    writeToLog(stringToWrite='\nWarning: `{}` has an invalid modification date. Try running with -f to fix. Received error: {}'.format(p.decode(FSENCODING), ex))
+            try:
+                c = datetime.datetime.fromtimestamp(new_atime)
+            except Exception as ex:
+                warnings.append(p)
+                print(
+                    '\rWarning: `{}` has an invalid access date. Try running with -f to fix.Received error: {}'.format(
+                        p.decode(FSENCODING), ex,
+                    ),
+                    file=sys.stderr,
+                )
+                if (self.log):
+                    writeToLog(stringToWrite='\nWarning: `{}` has an invalid access date. Try running with -f to fix. Received error: {}'.format(p.decode(FSENCODING), ex))
+
             if (self.test >= 3):
                 delta = a - b
-                if (delta.days >= RECENT):
+                delta2= a - c
+                if (delta.days >= RECENT or delta2.days >= RECENT):
                     tooOldList.append(p_uni)
                     missing_paths.discard(p_uni)
                     total_size -= st.st_size
@@ -1125,7 +1143,7 @@ def run_from_command_line():
         help='Level 0: normal operations.\n'
         'Level 1: just test against an existing database, don\'t update anything.\n.'
         'Level 2: Doesnt compare dates, only hashes.\n'
-        'Level 3: Only compares recently modified data.\n')
+        'Level 3: Only compares recently modified or accessed data.\n')
     parser.add_argument(
         '-a', '--hashing-function', default='',
         help='Specifies the hashing function to use')
@@ -1164,8 +1182,10 @@ def run_from_command_line():
         '-c', '--sfv', default='',
         help='Also generates an MD5 or SFV file when given either of these as a parameter')
     parser.add_argument(
-        '-f', '--fix', action='store_true',
-        help='Fixes files by removing invalid characters and adding missing modification times')
+        '-f', '--fix', default=1,
+        help='Level 0: will not check for problem files.\n'
+        'Level 1: Will report problem files.\n'
+        'Level 2: Fixes files by removing invalid characters and adding missing modification times. NOT RECOMMENDED.')
 
     args = parser.parse_args()
     if args.sum:
@@ -1290,9 +1310,9 @@ def run_from_command_line():
                         if (args.log):
                             writeToLog("\nWon\'t compare dates, only hashes")
                     elif (test == 3):
-                        print("Only comparing recently modified data.")
+                        print("Only comparing recently modified or accessed data.")
                         if (args.log):
-                            writeToLog("\nOnly comparing recently modified data.")
+                            writeToLog("\nOnly comparing recently modified or accessed data.")
                     else:
                         print("Invalid test option selected: {}. Using default level 0.".format(args.test))
                         if (args.log):
@@ -1304,6 +1324,36 @@ def run_from_command_line():
                 if (args.log):
                      writeToLog("\nInvalid test option selected: {}. Using default level 0.".format(args.test))
             test = 0
+            pass
+
+        fix = 0
+        try:
+            fix = int(args.fix)
+            if (fix):
+                if (verbosity):
+                    if (fix == 1):
+                        print("Just checking files for problems; won\'t change anything.")
+                        if (args.log):
+                            writeToLog("\nJust checking files for problems; won\'t change anything.")
+                    elif (fix == 2):
+                        print("Will check and change problem files.")
+                        if (args.log):
+                            writeToLog("\nWill check and change problem files.")
+                    elif (fix == 0):
+                        print("Will not check problem files.")
+                        if (args.log):
+                            writeToLog("\nWill not check problem files.")
+                    else:
+                        print("Invalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
+                        if (args.log):
+                             writeToLog("\nInvalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
+                        fix = 1
+        except Exception as err:
+            if (verbosity):
+                print("Invalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
+                if (args.log):
+                     writeToLog("\nInvalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
+            fix = 0
             pass
 
         bt = Bitrot(
@@ -1318,7 +1368,7 @@ def run_from_command_line():
             include_list = include_list,
             exclude_list = exclude_list,
             sfv = sfv,
-            fix = args.fix,
+            fix = fix,
         )
         if args.fsencoding:
             FSENCODING = args.fsencoding
