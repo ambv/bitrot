@@ -430,25 +430,29 @@ class Bitrot(object):
             new_mtime = int(st.st_mtime)
             new_atime = int(st.st_atime)
             a = datetime.datetime.now()
-            
 
-            if (self.fix >= 1):
-                if not new_mtime or not new_atime:
+
+            if not new_mtime or not new_atime:
+                nowTime = time.mktime(a.timetuple())
+                if (self.fix >= 1):
                         fixedPropertiesList.append([])
                         fixedPropertiesList.append([])
                         fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
                         fixedPropertiesCounter += 1
                         nowTime = time.mktime(a.timetuple())
                 if (self.fix >= 2):
-                    if not new_mtime and not new_atime:
-                        #Accessed time was also bad
-                        os.utime(p, (nowTime,nowTime))
-                    elif not (new_mtime):
-                        os.utime(p, (new_atime,nowTime))
-                    elif not (new_atime):
-                        os.utime(p, (nowTime,new_mtime))
-                    else:
-                        pass
+                    os.utime(p, (nowTime,nowTime))
+                    new_mtime = int(st.st_mtime)
+                    new_atime = int(st.st_atime)
+            elif not (new_mtime):
+                if (self.fix >= 2):
+                    os.utime(p, (new_atime,nowTime))
+                    new_mtime = int(st.st_mtime)
+            elif not (new_atime):
+                if (self.fix >= 2):
+                    os.utime(p, (nowTime,new_mtime))
+                    new_atime = int(st.st_atime)
+
             try:
                 b = datetime.datetime.fromtimestamp(new_mtime)
             except Exception as ex:
@@ -473,10 +477,12 @@ class Bitrot(object):
                 )
                 if (self.log):
                     writeToLog(stringToWrite='\nWarning: `{}` has an invalid access date. Try running with -f to fix. Received error: {}'.format(p.decode(FSENCODING), ex))
-
+                   
+            
             if (self.test >= 3):
                 delta = a - b
                 delta2= a - c
+                print("accessed: {} modified: {}".format(delta.days,delta2.days))
                 if (delta.days >= RECENT or delta2.days >= RECENT):
                     tooOldList.append(p_uni)
                     missing_paths.discard(p_uni)
@@ -1318,6 +1324,11 @@ def run_from_command_line():
                         if (args.log):
                              writeToLog("\nInvalid test option selected: {}. Using default level 0.".format(args.test))
                         test = 0
+            elif (test == 0):
+                if (verbosity):
+                    print("Testing-only disabled.")
+                    if (args.log):
+                        writeToLog("\nTesting-only disabled.")
         except Exception as err:
             if (verbosity):
                 print("Invalid test option selected: {}. Using default level 0.".format(args.test))
@@ -1339,15 +1350,16 @@ def run_from_command_line():
                         print("Will check and change problem files.")
                         if (args.log):
                             writeToLog("\nWill check and change problem files.")
-                    elif (fix == 0):
-                        print("Will not check problem files.")
-                        if (args.log):
-                            writeToLog("\nWill not check problem files.")
                     else:
                         print("Invalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
                         if (args.log):
                              writeToLog("\nInvalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
                         fix = 1
+            elif (fix == 0):
+                    if (verbosity):
+                        print("Will not check problem files.")
+                        if (args.log):
+                            writeToLog("\nWill not check problem files.")
         except Exception as err:
             if (verbosity):
                 print("Invalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
