@@ -674,13 +674,13 @@ class Bitrot(object):
         sizeUnits , total_size = calculateUnits(total_size=total_size)
         totalFixed = fixedRenameCounter + fixedPropertiesCounter
         if (error_count == 1):
-                print('\rFinished. {:.2f} {} of data read. 1 error found. '.format(total_size,sizeUnits),end="")
+                print('\rFinished. {:.2f} {} of data read. 1 error found.'.format(total_size,sizeUnits),end="")
                 if (self.log):
-                    writeToLog('\n\nFinished. {:.2f} {} of data read. '.format(total_size,sizeUnits))
+                    writeToLog('\n\nFinished. {:.2f} {} of data read. 1 error found.'.format(total_size,sizeUnits))
         else:
-            print('\rFinished. {:.2f} {} of data read. {} errors found. '.format(total_size, sizeUnits, error_count),end="")
+            print('\rFinished. {:.2f} {} of data read. {} errors found.'.format(total_size, sizeUnits, error_count),end="")
             if (self.log):
-                writeToLog('\n\nFinished. {:.2f} MiB of data read. {} errors found. '.format(total_size, error_count, sizeUnits))
+                writeToLog('\n\nFinished. {:.2f} {} of data read. {} errors found.'.format(total_size, sizeUnits, error_count))
 
         if (warning_count == 1):
             print('1 warning found.')
@@ -1250,6 +1250,9 @@ def run_from_command_line():
                     for line in includeFile:
                         line = line.rstrip('\n').encode(FSENCODING)
                         include_list.append(line)
+                    if includeFile:
+                        includeFile.close() # should be harmless if include_list == sys.stdin
+
             except Exception as err:
                 if (verbosity):
                     print("Invalid inclusion list specified: `{}`. Not using an inclusion list. Received error: {}".format(args.include_list, err))
@@ -1270,6 +1273,8 @@ def run_from_command_line():
                     for line in excludeFile:
                         line = line.rstrip('\n').encode(FSENCODING)
                         exclude_list.append(line)
+                    if excludeFile:
+                        excludeFile.close() # should be harmless if include_list == sys.stdin
             except Exception as err:
                 if (verbosity):
                     print("Invalid exclusion list specified: `{}`. Not using an exclusion list. Received error: {}".format(args.exclude_list, err))
@@ -1421,12 +1426,6 @@ def run_from_command_line():
                 writeToLog('\nError: ')
                 writeToLog(bre.args[1])
             sys.exit(bre.args[0])
-
-        if includeFile:
-            includeFile.close() # should be harmless if include_list == sys.stdin
-
-        #if excludeFile:
-            # excludeFile.close() # should be harmless if include_list == sys.stdin
 
 if __name__ == '__main__':
     run_from_command_line()
