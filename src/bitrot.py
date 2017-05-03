@@ -67,7 +67,7 @@ def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
     USERNAME = 'authorUsername'
     PASSWORD = 'authorPassword'
-    
+
     try:
         msg['Subject'] = subject
         # The actual mail send
@@ -683,13 +683,13 @@ class Bitrot(object):
                 writeToLog('\n\nFinished. {:.2f} {} of data read. {} errors found.'.format(total_size, sizeUnits, error_count))
 
         if (warning_count == 1):
-            print('1 warning found.')
+            print(' 1 warning found.')
             if (self.log):
-                writeToLog('1 warning found')
+                writeToLog(' 1 warning found.')
         else:
-            print('{} warnings found.'.format(warning_count))
+            print(' {} warnings found.'.format(warning_count))
             if (self.log):
-                writeToLog('{} warnings found.'.format(warning_count))
+                writeToLog(' {} warnings found.'.format(warning_count))
 
         if self.verbosity == 1:
             if (all_count == 1):
