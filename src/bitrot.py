@@ -60,12 +60,12 @@ if sys.version[0] == '2':
 def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
-    FROMADDR = 'author@gmail.com'
-    TOADDR  = 'recipient@gmail.com'
-    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
-    USERNAME = 'authorUsername'
-    PASSWORD = 'authorPassword'
+    DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
+    DOT_THRESHOLD = 2
+    VERSION = (0, 9, 3)
+    IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
+    FSENCODING = sys.getfilesystemencoding()
+    DEFAULT_HASH_FUNCTION = "SHA512" 
 
     try:
         msg['Subject'] = subject
@@ -602,7 +602,9 @@ class Bitrot(object):
                 fixedPropertiesCounter,
             )
 
-        cur.execute('vacuum')
+        if not self.test:
+            cur.execute('vacuum')
+
         update_sha512_integrity(verbosity=self.verbosity, log=self.log)
 
         if self.verbosity:
