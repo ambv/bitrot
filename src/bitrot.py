@@ -1190,7 +1190,7 @@ def run_from_command_line():
         'Level 4: List missing, fixed, new, renamed, and updated entries, and ignored files.\n')
     parser.add_argument(
         '-e', '--email', action='store_true',
-        help='email file integirty errors')
+        help='email file integrity errors')
     parser.add_argument(
         '-g', '--log', action='store_true',
         help='logs activity')
