@@ -52,7 +52,6 @@ VERSION = (0, 9, 3)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
 DEFAULT_HASH_FUNCTION = "SHA512"
-RECENT = 3
 
 if sys.version[0] == '2':
     str = type(u'text')
@@ -67,7 +66,7 @@ def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
     USERNAME = 'authorUsername'
     PASSWORD = 'authorPassword'
-    
+
     try:
         msg['Subject'] = subject
         # The actual mail send
@@ -319,11 +318,12 @@ class BitrotException(Exception):
 
 class Bitrot(object):
     def __init__(
-        self, verbosity=1, email = False, log = False, test=0, follow_links=False, commit_interval=300,
+        self, verbosity=1, email = False, log = False, test=0, recent = 0, follow_links=False, commit_interval=300,
         chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], hashing_function="", sfv="MD5", fix=0
     ):
         self.verbosity = verbosity
         self.test = test
+        self.recent = recent
         self.follow_links = follow_links
         self.commit_interval = commit_interval
         self.chunk_size = chunk_size
@@ -488,10 +488,10 @@ class Bitrot(object):
                     writeToLog('\nWarning: `{}` has an invalid access date. Try running with -f to fix. Received error: {}'.format(p.decode(FSENCODING), ex))
                    
             
-            if (self.test == 3):
+            if (self.recent >= 1):
                 delta = a - b
                 delta2= a - c
-                if (delta.days >= RECENT or delta2.days >= RECENT):
+                if (delta.days >= self.recent or delta2.days >= self.recent):
                     tooOldList.append(p_uni)
                     missing_paths.discard(p_uni)
                     total_size -= st.st_size
@@ -693,27 +693,27 @@ class Bitrot(object):
             if (all_count == 1):
                 print(
                     '1 entry in the database, {} new, {} updated, '
-                    '{} renamed, {} missing, {} fixed.'.format(
+                    '{} renamed, {} missing, {} skipped, {} fixed.'.format(
                         len(new_paths), len(updated_paths),
-                        len(renamed_paths), len(missing_paths), totalFixed))
+                        len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed))
                 if (self.log):
                     writeToLog(
                     '\n1 entry in the database, {} new, {} updated, '
-                    '{} renamed, {} missing, {} fixed'.format(
+                    '{} renamed, {} missing, {} skipped, {} fixed'.format(
                         len(new_paths), len(updated_paths),
-                        len(renamed_paths), len(missing_paths), totalFixed))
+                        len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed))
             else:
                 print(
                 '{} entries in the database, {} new, {} updated, '
-                '{} renamed, {} missing, {} fixed.'.format(
+                '{} renamed, {} missing, {} skipped, {} fixed.'.format(
                     all_count, len(new_paths), len(updated_paths),
-                    len(renamed_paths), len(missing_paths), totalFixed))
+                    len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed))
                 if (self.log):
                     writeToLog(
                     '\n{} entries in the database, {} new, {} updated, '
-                    '{} renamed, {} missing, {} fixed.'.format(
+                    '{} renamed, {} missing, {} skipped, {} fixed.'.format(
                         all_count, len(new_paths), len(updated_paths),
-                        len(renamed_paths), len(missing_paths), totalFixed))
+                        len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed))
 
         elif self.verbosity > 1:
             if (all_count == 1):
@@ -1138,30 +1138,32 @@ def run_from_command_line():
     parser.add_argument(
         '--commit-interval', type=float, default=300,
         help='min time in seconds between commits '
-             '(0 commits on every operation)')
+             '(0 commits on every operation).')
     parser.add_argument(
         '--chunk-size', type=int, default=DEFAULT_CHUNK_SIZE,
-        help='read files this many bytes at a time')
+        help='read files this many bytes at a time.')
     parser.add_argument(
         '--fsencoding', default='',
         help='override the codec to decode filenames, otherwise taken from '
-             'the LANG environment variables')
+             'the LANG environment variables.')
     parser.add_argument(
         '-i', '--include-list', default='',
-        help='only read the files listed in this file (use - for stdin)')
+        help='only read the files listed in this file (use - for stdin).')
         # .\Directory\1.hi
     parser.add_argument(
         '-t', '--test', default=0,
         help='Level 0: normal operations.\n'
-        'Level 1: just test against an existing database, don\'t update anything.\n.'
-        'Level 2: Doesnt compare dates, only hashes. No timestamps are used in the calculation.\n'
-        'Level 3: Only compares recently modified or accessed data.\n')
+        'Level 1: Just test against an existing database, don\'t update anything.\n.'
+        'Level 2: Doesnt compare dates, only hashes. No timestamps are used in the calculation.\n')
     parser.add_argument(
         '-a', '--hashing-function', default='',
-        help='Specifies the hashing function to use')
+        help='Specifies the hashing function to use.')
+    parser.add_argument(
+        '-r','--recent', default=0,
+        help='Only deal with files < X days old.')
     parser.add_argument(
         '-x', '--exclude-list', default='',
-        help="don't read the files listed in this file - wildcards are allowed")
+        help="don't read the files listed in this file - wildcards are allowed.")
         #Samples: 
         # *DirectoryA
         # DirectoryB*
@@ -1340,10 +1342,9 @@ def run_from_command_line():
                 test = int(args.test)
                 if (verbosity):
                     if (test == 0):
-                        if (verbosity):
-                            print("Testing-only disabled.")
-                            if (args.log):
-                                writeToLog("\nTesting-only disabled.")
+                        print("Testing-only disabled.")
+                        if (args.log):
+                            writeToLog("\nTesting-only disabled.")
                     elif (test == 1):
                         print("Just testing against an existing database, won\'t update anything.")
                         if (args.log):
@@ -1352,10 +1353,6 @@ def run_from_command_line():
                         print("Won\'t compare dates, only hashes")
                         if (args.log):
                             writeToLog("\nWon\'t compare dates, only hashes")
-                    elif (test == 3):
-                        print("Only comparing recently modified or accessed data.")
-                        if (args.log):
-                            writeToLog("\nOnly comparing recently modified or accessed data.")
                     else:
                         print("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test))
                         if (args.log):
@@ -1368,6 +1365,29 @@ def run_from_command_line():
                          writeToLog("\nInvalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test))
                 test = 0
                 pass
+
+        recent = 0;
+        if (args.recent):
+            try:
+                recent = int(args.recent)
+                if (recent):
+                    if (verbosity):
+                        print("Only processing files < {} days old.".format(args.recent))
+                        if (args.log):
+                            writeToLog("\nOnly processing files < {} days old.".format(args.recent))
+                else:
+                    if (verbosity):
+                        print("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent))
+                        if (args.log):
+                             writeToLog("\nInvalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent))
+                    recent = 0
+            except Exception as err:
+                if (verbosity):
+                    print("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent))
+                    if (args.log):
+                        writeToLog("\nInvalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent))
+                recent = 0
+                pass       
 
         fix = 0
         if (args.fix):
@@ -1403,6 +1423,7 @@ def run_from_command_line():
             verbosity = verbosity,
             hashing_function = hashing_function,
             test = test,
+            recent = recent,
             email = args.email,
             log = args.log,
             follow_links = args.follow_links,
