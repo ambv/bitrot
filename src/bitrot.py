@@ -60,13 +60,13 @@ if sys.version[0] == '2':
 def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
-      FROMADDR = 'author@gmail.com'
-      TOADDR  = 'recipient@gmail.com'
-      msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-      msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
-      USERNAME = 'authorUsername'
-      PASSWORD = 'authorPassword'
-    
+    FROMADDR = 'author@gmail.com'
+    TOADDR  = 'recipient@gmail.com'
+    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
+    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
+    USERNAME = 'authorUsername'
+    PASSWORD = 'authorPassword'
+
     try:
         msg['Subject'] = subject
         # The actual mail send
@@ -1198,10 +1198,10 @@ def run_from_command_line():
         'Level 3: List missing, fixed, new, renamed, and updated entries.\n'
         'Level 4: List missing, fixed, new, renamed, and updated entries, and ignored files.\n')
     parser.add_argument(
-        '-e', '--email', action='store_true',
+        '-e', '--email', default=1,
         help='email file integrity errors')
     parser.add_argument(
-        '-g', '--log', action='store_true',
+        '-g', '--log', default=1,
         help='logs activity')
     parser.add_argument(
         '-c', '--sfv', default='',
@@ -1223,11 +1223,7 @@ def run_from_command_line():
         if args.verbose:
             try:
                 verbosity = int(args.verbose)
-                if (verbosity == 1):
-                    print("Verbosity option selected: {}. Normal amount of verbosity.".format(args.verbose))
-                    if (args.log):
-                         writeToLog("\nVerbosity option selected: {}. Normal amount of verbosity.".format(args.verbose))
-                elif (verbosity == 2):
+                if (verbosity == 2):
                     print("Verbosity option selected: {}. List missing, and fixed entries.".format(args.verbose))
                     if (args.log):
                          writeToLog("\nVerbosity option selected: {}. List missing, and fixed entries.".format(args.verbose))
@@ -1239,7 +1235,7 @@ def run_from_command_line():
                     print("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose))
                     if (args.log):
                          writeToLog("\nVerbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose))
-                elif not (verbosity == 0):
+                elif not (verbosity == 0) and not (verbosity == 1):
                     print("Invalid verbosity option selected: {}. Using default level 1.".format(args.verbose))
                     if (args.log):
                          writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
