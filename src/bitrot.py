@@ -60,13 +60,13 @@ if sys.version[0] == '2':
 def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
-    DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
-    DOT_THRESHOLD = 2
-    VERSION = (0, 9, 3)
-    IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
-    FSENCODING = sys.getfilesystemencoding()
-    DEFAULT_HASH_FUNCTION = "SHA512" 
-
+      FROMADDR = 'author@gmail.com'
+      TOADDR  = 'recipient@gmail.com'
+      msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
+      msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
+      USERNAME = 'authorUsername'
+      PASSWORD = 'authorPassword'
+    
     try:
         msg['Subject'] = subject
         # The actual mail send
@@ -691,7 +691,16 @@ class Bitrot(object):
             if (self.log):
                 writeToLog(' {} warnings found.'.format(warning_count))
 
-        if self.verbosity == 1:
+
+        # help='Level 0: Don\'t print anything besides checksum errors.\n'
+        # 'Level 1: Normal amount of verbosity.\n'
+        # 'Level 2: List missing, and fixed entries.\n'
+        # 'Level 3: List missing, fixed, new, renamed, and updated entries.\n'
+        # 'Level 4: List missing, fixed, new, renamed, and updated entries, and ignored files.\n')
+
+
+
+        if self.verbosity >= 1:
             if (all_count == 1):
                 print(
                     '1 entry in the database, {} new, {} updated, '
@@ -717,15 +726,15 @@ class Bitrot(object):
                         all_count, len(new_paths), len(updated_paths),
                         len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed))
 
-        elif self.verbosity > 1:
-            if (all_count == 1):
-                print('1 entry in the database.')
-                if (self.log):
-                    writeToLog('1 entry in the database.')
-            else:
-                print('{} entries in the database.'.format(all_count), end=' ')
-                if (self.log):
-                    writeToLog('\n{} entries in the database.'.format(all_count))
+        # if self.verbosity >= 2:
+        #     if (all_count == 1):
+        #         print('1 entry in the database.')
+        #         if (self.log):
+        #             writeToLog('1 entry in the database.')
+        #     else:
+        #         print('{} entries in the database.'.format(all_count), end=' ')
+        #         if (self.log):
+        #             writeToLog('\n{} entries in the database.'.format(all_count))
 
         if self.verbosity >= 4:
             if (ignoredList):
@@ -1214,17 +1223,33 @@ def run_from_command_line():
         if args.verbose:
             try:
                 verbosity = int(args.verbose)
+                if (verbosity == 1):
+                    print("Verbosity option selected: {}. Normal amount of verbosity.".format(args.verbose))
+                    if (args.log):
+                         writeToLog("\nVerbosity option selected: {}. Normal amount of verbosity.".format(args.verbose))
+                elif (verbosity == 2):
+                    print("Verbosity option selected: {}. List missing, and fixed entries.".format(args.verbose))
+                    if (args.log):
+                         writeToLog("\nVerbosity option selected: {}. List missing, and fixed entries.".format(args.verbose))
+                elif (verbosity == 3):
+                    print("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries.".format(args.verbose))
+                    if (args.log):
+                         writeToLog("\nVerbosity option selected: {}. List missing, fixed, new, renamed, and updated entries.".format(args.verbose))
+                elif (verbosity == 4):
+                    print("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose))
+                    if (args.log):
+                         writeToLog("\nVerbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose))
+                elif not (verbosity == 0):
+                    print("Invalid verbosity option selected: {}. Using default level 1.".format(args.verbose))
+                    if (args.log):
+                         writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
+                    verbosity = 1
             except Exception as err:
                 print("Invalid verbosity option selected: {}. Using default level 1.".format(args.verbose))
                 if (args.log):
                      writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
                 verbosity = 1
                 pass
-            if (verbosity != 0 and verbosity != 1 and verbosity != 2 and verbosity != 3 and verbosity != 4):
-                print("Invalid verbosity option selected: {}. Using default level 1.".format(args.verbose))
-                if (args.log):
-                     writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
-                verbosity = 1
 
         if (args.log):
             log_path = get_path(ext=b'log')
