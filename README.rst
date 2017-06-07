@@ -50,10 +50,10 @@ Change Log
 0.9.3
 ~~~~~
 * Added database vacuuming to shrink DB size on hard drive of old hashes that went missing
-* Added logging to file
+* Added logging to file using -g or ---log (on by default)
 * Added grammar fixes
 * Added a time elapsed counter
-* Added email support for hash mismatch using -e or --email
+* Added email support for hash mismatch using -e or --email (on by default)
 * Added option to ignore date modified (only checks hashes). Great for verifying backups for integrity (File Integrity Monitoring) using -t 2 or --test 2
 * Added ability to specify hash function from command line. I found SHA512 to be just as fast as SHA1 on my machine using -a or --hashing-function
 * Total size now printed in B, KB, MB, GB, TB
