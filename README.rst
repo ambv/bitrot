@@ -62,9 +62,9 @@ Change Log
 * Integrates benshep's and liloman's latest changes
 * Can now include and exclude at same time, and fixed logic. Exclude takes prescendence
 * Now prints out ignored files at the end with verbosity level 4
-* Added option to allow testing of only recent (default: last 1 day) of recently modified data (great for checking a backup you just synced for integruty) using -r or --recent
+* Added option to allow testing of only recent (default: last 1 day) of recently modified data (great for checking a backup you just synced for integrity) using -r or --recent
 * Fixed bug when file doesn't have a valid modification timestamp
-* Can now fix files that have invalid modification date, and rename files/dirs that have bad chars in name, using -f or --fix
+* Can now fix files that have invalid modification date, and rename files/dirs that have bad chars in name, using -f or --fix (dangerous)
 * Can now create MD5 or SFV files using -c or --sfv
 
 0.9.2
