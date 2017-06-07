@@ -691,15 +691,6 @@ class Bitrot(object):
             if (self.log):
                 writeToLog(' {} warnings found.'.format(warning_count))
 
-
-        # help='Level 0: Don\'t print anything besides checksum errors.\n'
-        # 'Level 1: Normal amount of verbosity.\n'
-        # 'Level 2: List missing, and fixed entries.\n'
-        # 'Level 3: List missing, fixed, new, renamed, and updated entries.\n'
-        # 'Level 4: List missing, fixed, new, renamed, and updated entries, and ignored files.\n')
-
-
-
         if self.verbosity >= 1:
             if (all_count == 1):
                 print(
