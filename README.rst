@@ -47,6 +47,26 @@ performance improvements, I'm accepting pull requests! :)
 Change Log
 ----------
 
+0.9.3
+~~~~~
+* Added database vacuuming to shrink DB size on hard drive of old hashes that went missing
+* Added logging to file using -g or ---log (on by default)
+* Added grammar fixes
+* Added a time elapsed counter
+* Added email support for hash mismatch using -e or --email (on by default)
+* Added option to ignore date modified (only checks hashes). Great for verifying backups for integrity (File Integrity Monitoring) using -t 2 or --test 2
+* Added ability to specify hash function from command line. I found SHA512 to be just as fast as SHA1 on my machine using -a or --hashing-function
+* Total size now printed in B, KB, MB, GB, TB
+* Fixes for invalid characters in file names
+* Better warning printing
+* Integrates benshep's and liloman's latest changes
+* Can now include and exclude at same time, and fixed logic. Exclude takes prescendence
+* Now prints out ignored files at the end with verbosity level 4
+* Added option to allow testing of only recent (default: last 1 day) of recently modified data (great for checking a backup you just synced for integrity) using -r or --recent
+* Fixed bug when file doesn't have a valid modification timestamp
+* Can now fix files that have invalid modification date, and rename files/dirs that have bad chars in name, using -f or --fix (dangerous)
+* Can now create MD5 or SFV files using -c or --sfv
+
 0.9.2
 ~~~~~
 
