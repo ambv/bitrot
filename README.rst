@@ -49,6 +49,7 @@ Change Log
 
 0.9.3
 ~~~~~
+* Added database vacuuming to shrink DB size on hard drive of old hashes that went missing
 * Added logging to file
 * Added grammar fixes
 * Added a time elapsed counter
