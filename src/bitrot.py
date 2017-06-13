@@ -433,32 +433,26 @@ class Bitrot(object):
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
-
+           
             new_mtime = int(st.st_mtime)
             new_atime = int(st.st_atime)
+            new_mtime_orig = new_mtime
+            new_atime_orig = new_atime
             a = datetime.datetime.now()
-
+            
+            #Used for testing bad file timestamps
+            #os.utime(p, (0,0))
+            #continue
 
             if not new_mtime or not new_atime:
                 nowTime = time.mktime(a.timetuple())
-                if (self.fix >= 1):
-                        fixedPropertiesList.append([])
-                        fixedPropertiesList.append([])
-                        fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
-                        fixedPropertiesCounter += 1
-                        nowTime = time.mktime(a.timetuple())
-                if (self.fix >= 2):
-                    os.utime(p, (nowTime,nowTime))
-                    new_mtime = int(st.st_mtime)
-                    new_atime = int(st.st_atime)
+            if not new_mtime and not new_atime:
+                new_mtime = int(st.st_mtime)
+                new_atime = int(st.st_atime)
             elif not (new_mtime):
-                if (self.fix >= 2):
-                    os.utime(p, (new_atime,nowTime))
-                    new_mtime = int(st.st_mtime)
+                new_mtime = int(nowTime)
             elif not (new_atime):
-                if (self.fix >= 2):
-                    os.utime(p, (nowTime,new_mtime))
-                    new_atime = int(st.st_atime)
+                new_atime = int(nowTime)
 
             try:
                 b = datetime.datetime.fromtimestamp(new_mtime)
@@ -484,8 +478,8 @@ class Bitrot(object):
                 )
                 if (self.log):
                     writeToLog('\nWarning: `{}` has an invalid access date. Try running with -f to fix. Received error: {}'.format(p.decode(FSENCODING), ex))
-                   
-            
+ 
+
             if (self.recent >= 1):
                 delta = a - b
                 delta2= a - c
@@ -494,6 +488,22 @@ class Bitrot(object):
                     missing_paths.discard(p_uni)
                     total_size -= st.st_size
                     continue
+
+            if not new_mtime_orig or not new_atime_orig:
+                if (self.fix >= 1):
+                        fixedPropertiesList.append([])
+                        fixedPropertiesList.append([])
+                        fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
+                        fixedPropertiesCounter += 1
+            if not new_mtime_orig and not new_atime_orig:
+                if (self.fix >= 2):
+                    os.utime(p, (nowTime,nowTime))
+            elif not (new_mtime_orig):
+                if (self.fix >= 2):
+                    os.utime(p, (new_atime,nowTime))
+            elif not (new_atime_orig):
+                if (self.fix >= 2):
+                    os.utime(p, (nowTime,new_mtime))
 
             current_size += st.st_size
             if self.verbosity:
@@ -602,6 +612,7 @@ class Bitrot(object):
 
         if not self.test:
             cur.execute('vacuum')
+
 
         update_sha512_integrity(verbosity=self.verbosity, log=self.log)
 
