@@ -571,7 +571,7 @@ class Bitrot(object):
                 )
                 if (self.log):
                     writeToLog(
-                        '\n\nError: {} mismatch for {}\nExpected: {}\nGot:          {}'
+                        '\n\nError: {} mismatch for {}\nExpected: {}\nGot:      {}'
                         '\nLast good hash checked on {}'.format(
                         #p, stored_hash, new_hash, stored_ts
                         self.hashing_function,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))   
@@ -581,9 +581,10 @@ class Bitrot(object):
             if (FIMErrorCounter >= 1):
                 emailToSendString=""
                 for i in range(0, FIMErrorCounter):
-                    emailToSendString +="Error {} mismatch for {} \nExpected {}\nGot:          {}\n".format(emails[i][0],emails[i][1],emails[i][2],emails[i][3])
+                    emailToSendString +="Error: {} mismatch for {} \nExpected: {}\nGot:      {}\n".format(emails[i][0],emails[i][1],emails[i][2],emails[i][3])
                     emailToSendString +="Last good hash checked on {}\n\n".format(emails[i][4])
-                sendMail(emailToSendString,log=self.log,verbosity=self.verbosity, subject="FIM Error")
+                #sendMail(emailToSendString,log=self.log,verbosity=self.verbosity, subject="FIM Error")
+                writeToLog("\n"+emailToSendString)
             
         for path in missing_paths:
             cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
