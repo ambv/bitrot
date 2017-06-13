@@ -90,12 +90,12 @@ def is_int(val):
             return False
 
 def isValidHashingFunction(stringToValidate=""):
-    if  (stringToValidate == "SHA1"
-      or stringToValidate == "SHA224"
-      or stringToValidate == "SHA384"
-      or stringToValidate == "SHA256"
-      or stringToValidate == "SHA512"
-      or stringToValidate == "MD5"):
+    if  (stringToValidate.upper() == "SHA1"
+      or stringToValidate.upper() == "SHA224"
+      or stringToValidate.upper() == "SHA384"
+      or stringToValidate.upper() == "SHA256"
+      or stringToValidate.upper() == "SHA512"
+      or stringToValidate.upper() == "MD5"):
         return True
     else:
         return False
@@ -1309,7 +1309,7 @@ def run_from_command_line():
             #algorithms_available = hashlib.algorithms_available
             #search = args.hashing_function
             #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
-            if (isValidHashingFunction(stringToValidate=args.hashing_function.upper()) == True):
+            if (isValidHashingFunction(stringToValidate=args.hashing_function) == True):
                 hashing_function = args.hashing_function.upper()
                 if (verbosity):
                     print('Using {} for hashing function.'.format(hashing_function))   
