@@ -261,6 +261,9 @@ class Bitrot(object):
             cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
 
         conn.commit()
+        
+        if not self.test:
+            cur.execute('vacuum')
 
         if self.verbosity:
             cur.execute('SELECT COUNT(path) FROM bitrot')
