@@ -583,8 +583,7 @@ class Bitrot(object):
                 for i in range(0, FIMErrorCounter):
                     emailToSendString +="Error: {} mismatch for {} \nExpected: {}\nGot:      {}\n".format(emails[i][0],emails[i][1],emails[i][2],emails[i][3])
                     emailToSendString +="Last good hash checked on {}\n\n".format(emails[i][4])
-                #sendMail(emailToSendString,log=self.log,verbosity=self.verbosity, subject="FIM Error")
-                writeToLog("\n"+emailToSendString)
+                sendMail(emailToSendString,log=self.log,verbosity=self.verbosity, subject="FIM Error")
             
         for path in missing_paths:
             cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
