@@ -44,6 +44,7 @@ from fnmatch import fnmatch
 import email.utils
 from email.mime.text import MIMEText
 import binascii
+from zlib import crc32
 #import re
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
@@ -130,10 +131,6 @@ def calculateUnits(total_size = 0):
             total_size = total_size
         return sizeUnits, total_size
 
-def CRC32_from_file(filename):
-    buf = open(filename,'rb').read()
-    buf = (binascii.crc32(buf) & 0xFFFFFFFF)
-    return "%08X" % buf
 
 def cleanString(stringToClean=""):
     #stringToClean=re.sub(r'[\\/*?:"<>|]',"",stringToClean)
@@ -1104,8 +1101,13 @@ def hash(path, chunk_size,hashing_function="",log=1,sfv=""):
                     d2 = f2.read(chunk_size)
             writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv) 
         elif (sfv == "SFV"):
-            crc=CRC32_from_file(path)
-            writeToSFV(stringToWrite="{} {}\n".format(strippedPathString,crc),sfv=sfv) 
+            with open(path, 'rb') as f2:
+                d2 = f2.read(chunk_size)
+                crcvalue = 0
+                while d2:
+                    crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
+                    d2 = f2.read(chunk_size)
+        writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
 
     return digest.hexdigest()
 
