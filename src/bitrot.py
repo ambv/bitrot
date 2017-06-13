@@ -180,7 +180,7 @@ def get_sqlite3_cursor(path, copy=False):
     return conn
 
 
-def fix_existing_paths(directory, verbosity = 1, log=1, fix=1, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
+def fix_existing_paths(directory, verbosity = 1, log=1, fix=5, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
 #   Use os.getcwd() instead of "." since it doesn't seem to be resolved the way you want. This will be illustrated in the diagnostics function.
 #   Use relative path renaming by os.chdir(root). Of course using correct absolute paths also works, but IMHO relative paths are just more elegant.
 #   Pass an unambiguous string into os.walk() as others have mentioned.
@@ -190,25 +190,30 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=1, warnings = (), fi
         for f in files:
 
             if (isDirtyString(f)):
+                if (fix == 3) or (fix == 5):
+                    warnings.append(f)
+                    print('\rWarning: Invalid character detected in filename`{}`'.format(os.path.join(root, f)))
+                    if (log):
+                        writeToLog('rWarning: Invalid character detected in filename`{}`'.format(os.path.join(root, f)))
                 try:
                     # chdir before renaming
                     #os.chdir(root)
                     #fullfilename=os.path.abspath(f)
                     #os.rename(f, cleanString(f))  # relative path, more elegant
                     p_uniBackup = f
-                    if (fix >= 2):
+                    if (fix == 4) or (fix == 6):
                         os.rename(os.path.join(root, f), os.path.join(root, cleanString(f)))
                     p_uni = cleanString(f)
                 except Exception as ex:
                     warnings.append(f)
                     print(
-                        '\rCan\'t rename: {} due to warning: `{}`'.format(
+                        '\rWarning: Can\'t rename: {} due to warning: `{}`'.format(
                             os.path.join(root, f),ex,
                         ),
                         file=sys.stderr,
                     )
                     if (log):
-                        writeToLog('\rCan\'t rename: {} due to warning: `{}`'.format(os.path.join(root, f),ex))
+                        writeToLog('Can\'t rename: {} due to warning: `{}`'.format(os.path.join(root, f),ex))
                     continue
                 else:
                     fixedRenameList.append([])
@@ -224,7 +229,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=1, warnings = (), fi
                     #os.chdir(root)
                     #fullfilename=os.path.abspath(d)
                     p_uniBackup = d
-                    if (fix >= 2):
+                    if (fix == 4) or (fix == 6):
                         os.rename(os.path.join(root, d), os.path.join(root, cleanString(d)))
                     #os.rename(d, cleanString(d))  # relative path, more elegant
                     p_uni = cleanString(d)
@@ -237,7 +242,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=1, warnings = (), fi
                         file=sys.stderr,
                     )
                     if (log):
-                        writeToLog('\rCan\'t rename: {} due to warning: `{}`'.format(os.path.join(root, d),ex))
+                        writeToLog('Can\'t rename: {} due to warning: `{}`'.format(os.path.join(root, d),ex))
                     continue
                 else:
                     fixedRenameList.append([])
@@ -443,42 +448,34 @@ class Bitrot(object):
             #Used for testing bad file timestamps
             #os.utime(p, (0,0))
             #continue
-
+            
             if not new_mtime or not new_atime:
                 nowTime = time.mktime(a.timetuple())
             if not new_mtime and not new_atime:
-                new_mtime = int(st.st_mtime)
-                new_atime = int(st.st_atime)
+                new_mtime = int(nowTime)
+                new_atime = int(nowTime)
+                if (self.fix  == 1) or (self.fix  == 5):
+                    warnings.append(p)
+                    print('\rWarning: `{}` has an invalid access and modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
+                    if (self.log):
+                         writeToLog('\nWarning: `{}` has an invalid access and modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
             elif not (new_mtime):
                 new_mtime = int(nowTime)
+                if (self.fix  == 1) or (self.fix  == 5):
+                    warnings.append(p)
+                    print('\rWarning: `{}` has an invalid modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
+                    if (self.log):
+                         writeToLog('\nWarning: `{}` has an invalid modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
             elif not (new_atime):
                 new_atime = int(nowTime)
+                if (self.fix  == 1) or (self.fix  == 5):
+                    warnings.append(p)
+                    print('\rWarning: `{}` has an invalid access date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
+                    if (self.log):
+                         writeToLog('\nWarning: `{}` has an invalid access date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
 
-            try:
-                b = datetime.datetime.fromtimestamp(new_mtime)
-            except Exception as ex:
-                warnings.append(p)
-                print(
-                    '\rWarning: `{}` has an invalid modification date. Try running with -f to fix.Received error: {}'.format(
-                        p.decode(FSENCODING), ex,
-                    ),
-                    file=sys.stderr,
-                )
-                if (self.log):
-                    writeToLog('\nWarning: `{}` has an invalid modification date. Try running with -f to fix. Received error: {}'.format(p.decode(FSENCODING), ex))
-            try:
-                c = datetime.datetime.fromtimestamp(new_atime)
-            except Exception as ex:
-                warnings.append(p)
-                print(
-                    '\rWarning: `{}` has an invalid access date. Try running with -f to fix.Received error: {}'.format(
-                        p.decode(FSENCODING), ex,
-                    ),
-                    file=sys.stderr,
-                )
-                if (self.log):
-                    writeToLog('\nWarning: `{}` has an invalid access date. Try running with -f to fix. Received error: {}'.format(p.decode(FSENCODING), ex))
- 
+            b = datetime.datetime.fromtimestamp(new_mtime)
+            c = datetime.datetime.fromtimestamp(new_atime)
 
             if (self.recent >= 1):
                 delta = a - b
@@ -489,21 +486,61 @@ class Bitrot(object):
                     total_size -= st.st_size
                     continue
 
-            if not new_mtime_orig or not new_atime_orig:
-                if (self.fix >= 1):
-                        fixedPropertiesList.append([])
-                        fixedPropertiesList.append([])
-                        fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
-                        fixedPropertiesCounter += 1
+            fixPropertyFailed = False
+
             if not new_mtime_orig and not new_atime_orig:
-                if (self.fix >= 2):
-                    os.utime(p, (nowTime,nowTime))
+                if (self.fix  == 2) or (self.fix  == 6):
+                    try:
+                        os.utime(p, (nowTime,nowTime))
+                    except Exception as ex:
+                        warnings.append(f)
+                        fixPropertyFailed = True
+                        print(
+                            '\rWarning: Can\'t fix timestamps on: {} due to warning: `{}`'.format(
+                                p,ex,
+                            ),
+                            file=sys.stderr,
+                        )
+                        if (self.log):
+                            writeToLog('Can\'t rename: {} due to warning: `{}`'.format(p,ex))
             elif not (new_mtime_orig):
-                if (self.fix >= 2):
-                    os.utime(p, (new_atime,nowTime))
+                if (self.fix  == 2) or (self.fix  == 6):
+                    try:
+                        os.utime(p, (new_atime,nowTime))
+                    except Exception as ex:
+                        warnings.append(p)
+                        fixPropertyFailed = True
+                        print(
+                            '\rWarning: Can\'t fix timestamps on: {} due to warning: `{}`'.format(
+                                p,ex,
+                            ),
+                            file=sys.stderr,
+                        )
+                        if (self.log):
+                            writeToLog('Can\'t rename: {} due to warning: `{}`'.format(p,ex))
             elif not (new_atime_orig):
-                if (self.fix >= 2):
-                    os.utime(p, (nowTime,new_mtime))
+                if (self.fix  == 2) or (self.fix  == 6):
+                    try:
+                        os.utime(p, (nowTime,new_mtime))
+                    except Exception as ex:
+                        warnings.append(f)
+                        fixPropertyFailed = True
+                        print(
+                            '\rWarning: Can\'t fix timestamps on: {} due to warning: `{}`'.format(
+                                p,ex,
+                            ),
+                            file=sys.stderr,
+                        )
+                        if (log):
+                            writeToLog('Can\'t rename: {} due to warning: `{}`'.format(p,ex))
+
+            if not new_mtime_orig or not new_atime_orig:
+                if (fixPropertyFailed == False):
+                    if (self.fix  == 1) or (self.fix  == 5) or (self.fix  == 2) or (self.fix  == 6):
+                            fixedPropertiesList.append([])
+                            fixedPropertiesList.append([])
+                            fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
+                            fixedPropertiesCounter += 1
 
             current_size += st.st_size
             if self.verbosity:
@@ -515,14 +552,14 @@ class Bitrot(object):
             except (IOError, OSError) as e:
                 warnings.append(p)
                 print(
-                    '\rWarning: cannot compute hash of {} [{}]'.format(
+                    '\rWarning: Cannot compute hash of {} [{}]'.format(
                         #p, errno.errorcode[e.args[0]],
                         p.decode(FSENCODING),errno.errorcode[e.args[0]],
                     ),
                     file=sys.stderr,
                 )
                 if (self.log):
-                    writeToLog('\n\nWarning: cannot compute hash of {} [{}]'.format(
+                    writeToLog('\n\nWarning: Cannot compute hash of {} [{}]'.format(
                             #p, errno.errorcode[e.args[0]]))
                             p.decode(FSENCODING), errno.errorcode[e.args[0]]))
                 continue
@@ -846,7 +883,8 @@ class Bitrot(object):
                     if (self.log):
                         writeToLog('\n {}'.format(path))
 
-            if fixedRenameList:
+        if fixedRenameList:
+            if (self.fix == 4) or (self.fix == 6) or (self.verbosity >= 2):
                 if (len(fixedRenameList) == 1):
                     print('\n1 filename fixed:')
                     if (self.log):
@@ -860,8 +898,9 @@ class Bitrot(object):
                     print('  renamed `{}` to `{}`'.format(fixedRenameList[i][0],fixedRenameList[i][1]))
                     if (self.log):
                         writeToLog('\n  `{}` to `{}`'.format(fixedRenameList[i][0],fixedRenameList[i][1]))
-           
-            if fixedPropertiesList:
+       
+        if fixedPropertiesList:
+            if (self.fix == 2) or (self.fix == 6) or (self.verbosity >= 2):
                 if (len(fixedPropertiesList) == 1):
                     print('\n1 file property fixed:')
                     if (self.log):
@@ -872,9 +911,9 @@ class Bitrot(object):
                         writeToLog('\n\n{} file properties fixed:'.format(fixedPropertiesCounter))
 
                 for i in range(0, fixedPropertiesCounter):
-                    print('  Added missing modification time to {}'.format(fixedPropertiesList[i][0]))
+                    print('  Added missing access or modification timestamp to {}'.format(fixedPropertiesList[i][0]))
                     if (self.log):
-                        writeToLog('  Added missing modification time to {}'.format(fixedPropertiesList[i][0]))
+                        writeToLog('  Added missing access or modification timestamp to {}'.format(fixedPropertiesList[i][0]))
             
                         
         if any((new_paths, updated_paths, missing_paths, renamed_paths, ignoredList, tooOldList)):
@@ -1180,7 +1219,7 @@ def run_from_command_line():
         '-t', '--test', default=0,
         help='Level 0: normal operations.\n'
         'Level 1: Just test against an existing database, don\'t update anything.\n.'
-        'Level 2: Doesnt compare dates, only hashes. No timestamps are used in the calculation.\n')
+        'Level 2: Doesnt compare dates, only hashes. No timestamps are used in the calculation.')
     parser.add_argument(
         '-a', '--hashing-function', default='',
         help='Specifies the hashing function to use.')
@@ -1211,7 +1250,7 @@ def run_from_command_line():
         'Level 1: Normal amount of verbosity.\n'
         'Level 2: List missing, and fixed entries.\n'
         'Level 3: List missing, fixed, new, renamed, and updated entries.\n'
-        'Level 4: List missing, fixed, new, renamed, and updated entries, and ignored files.\n')
+        'Level 4: List missing, fixed, new, renamed, and updated entries, and ignored files.')
     parser.add_argument(
         '-e', '--email', default=1,
         help='email file integrity errors')
@@ -1224,8 +1263,12 @@ def run_from_command_line():
     parser.add_argument(
         '-f', '--fix', default=0,
         help='Level 0: will not check for problem files.\n'
-        'Level 1: Will report problem files.\n'
-        'Level 2: Fixes files by removing invalid characters and adding missing modification times. NOT RECOMMENDED.')
+        'Level 1: Will report files that have missing access and modification timestamps.\n'
+        'Level 2: Fixes files that have missing access and modification timestamps.\n'
+        'Level 3: Will report files that have invalid characters.\n'
+        'Level 4: Fixes files by removing invalid characters. NOT RECOMMENDED.\n'
+        'Level 5: Will report files that have missing access and modification timestamps and invalid characters.\n'
+        'Level 6: Fixes files by removing invalid characters and adding missing access and modification times. NOT RECOMMENDED.')
 
     args = parser.parse_args()
     if args.sum:
@@ -1431,30 +1474,53 @@ def run_from_command_line():
         if (args.fix):
             try:
                 fix = int(args.fix)
-                if (verbosity):
-                    if (fix == 0):
+                if (fix == 0):
+                    if (verbosity):
                         print("Will not check problem files.")
                         if (args.log):
                             writeToLog("\nWill not check problem files.")
-                    elif (fix == 1):
-                        print("Just checking files for problems; won\'t change anything.")
+                elif (fix == 1):
+                    if (verbosity):
+                        print("Will report files that have missing access and modification timestamps.")
                         if (args.log):
-                            writeToLog("\nJust checking files for problems; won\'t change anything.")
-                    elif (fix == 2):
-                        print("Will check and change problem files.")
+                            writeToLog("\nWill report files that have missing access and modification timestamps.")
+                elif (fix == 2):
+                    if (verbosity):
+                        print("Fixes files that have missing access and modification timestamps.")
                         if (args.log):
-                            writeToLog("\nWill check and change problem files.")
-                    else:
-                        print("Invalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
+                            writeToLog("\nFixes files that have missing access and modification timestamps.")
+                elif (fix == 3):
+                    if (verbosity):
+                        print("Will report files that have invalid characters")
                         if (args.log):
-                             writeToLog("\nInvalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
-                        fix = 1
+                            writeToLog("\nWill report files that have invalid characters")
+                elif (fix == 4):
+                    if (verbosity):
+                        print("Fixes files by removing invalid characters. NOT RECOMMENDED.")
+                        if (args.log):
+                            writeToLog("\nFixes files by removing invalid characters. NOT RECOMMENDED.")
+                elif (fix == 5):
+                    if (verbosity):
+                        print("Will report files that have missing access and modification timestamps and invalid characters.")
+                        if (args.log):
+                            writeToLog("\nWill report files that have missing access and modification timestamps and invalid characters.")
+                elif (fix == 6):
+                    if (verbosity):
+                        print("Fixes files by removing invalid characters and adding missing access and modification times. NOT RECOMMENDED.")
+                        if (args.log):
+                            writeToLog("\nFixes files by removing invalid characters and adding missing access and modification times. NOT RECOMMENDED.")
+                else:
+                    if (verbosity):
+                        print("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix))
+                        if (args.log):
+                             writeToLog("\nInvalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix))
+                        fix = 5
             except Exception as err:
                 if (verbosity):
-                    print("Invalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
+                    print("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix))
                     if (args.log):
-                         writeToLog("\nInvalid test option selected: {}. Using default level 1; just checking files for problems, won\'t change anything.".format(args.fix))
-                fix = 0
+                         writeToLog("\nInvalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix))
+                fix = 5
                 pass
 
         bt = Bitrot(
