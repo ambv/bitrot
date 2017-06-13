@@ -49,9 +49,9 @@ Change Log
 
 0.9.3
 ~~~~~
-* Added database vacuuming to shrink DB size on hard drive of old hashes that went missing
 * Added option to ignore date modified (only checks hashes). Great for verifying backups for integrity (File Integrity Monitoring) using -t 2 or --test 2
 * Added option to allow testing of only recent (default: last 1 day) of recently modified data (great for checking a backup you just synced for integrity) using -r or --recent
+* Added database vacuuming to shrink DB size on hard drive of old hashes that went missing
 * Added logging to file using -g or ---log (on by default)
 * Added email support for hash mismatch using -e or --email (on by default)
 * Added a time elapsed counter
