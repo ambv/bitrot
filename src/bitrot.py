@@ -43,8 +43,9 @@ import smtplib
 from fnmatch import fnmatch
 import email.utils
 from email.mime.text import MIMEText
-import binascii
-from zlib import crc32
+#import binascii
+#from zlib import crc32
+import zlib
 #import re
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
@@ -1105,9 +1106,19 @@ def hash(path, chunk_size,hashing_function="",log=1,sfv=""):
                 d2 = f2.read(chunk_size)
                 crcvalue = 0
                 while d2:
-                    crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
+                    #zlib is faster
+                    #import timeit
+                    #print("b:", timeit.timeit("binascii.crc32(data)", setup="import binascii, zlib; data=b'X'*4096", number=100000))
+                    #print("z:", timeit.timeit("zlib.crc32(data)",     setup="import binascii, zlib; data=b'X'*4096", number=100000))
+                    #Result:
+                    #b: 1.0176826480001182
+                    #z: 0.4006126120002591
+                    
+                    crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
+                    #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
                     d2 = f2.read(chunk_size)
-        writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
+            writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
+
 
     return digest.hexdigest()
 
