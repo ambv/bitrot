@@ -41,7 +41,7 @@ scanning a 60+ GB music library took around 15 minutes. On an OCZ
 Vertex 3 SSD drive ``bitrot`` was able to scan a 100 GB Aperture library
 in under 10 minutes. Both tests on HFS+.
 
-If you'd like to contribute some more rigorous eenchmarks or any
+If you'd like to contribute some more rigorous benchmarks or any
 performance improvements, I'm accepting pull requests! :)
 
 Change Log
