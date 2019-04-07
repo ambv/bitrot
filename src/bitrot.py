@@ -499,7 +499,7 @@ class Bitrot(object):
                     # permissions. We'll just skip it for now.
                     warnings.append(p)
                     #writeToLog('\nWarning: \'{}\' is currently unavailable for reading: {}'.format(p_uni, ex))
-                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p.decode(FSENCODING), ex),log)
+                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p.decode(FSENCODING), ex),self.log)
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
@@ -521,17 +521,17 @@ class Bitrot(object):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid access and modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)),log)
+                    printAndOrLog('Warning: \'{}\' has an invalid access and modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)),self.log)
             elif not (new_mtime):
                 new_mtime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)),log)
+                    printAndOrLog('Warning: \'{}\' has an invalid modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)),self.log)
             elif not (new_atime):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid access date. Try running with -f to fix.'.format(p.decode(FSENCODING)),log)
+                    printAndOrLog('Warning: \'{}\' has an invalid access date. Try running with -f to fix.'.format(p.decode(FSENCODING)),self.log)
 
             b = datetime.datetime.fromtimestamp(new_mtime)
             c = datetime.datetime.fromtimestamp(new_atime)
@@ -554,7 +554,7 @@ class Bitrot(object):
                     except Exception as ex:
                         warnings.append(f)
                         fixPropertyFailed = True
-                        printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(p,ex),log)
+                        printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(p,ex),self.log)
             elif not (new_mtime_orig):
                 if (self.fix  == 2) or (self.fix  == 6):
                     try:
@@ -562,7 +562,7 @@ class Bitrot(object):
                     except Exception as ex:
                         warnings.append(p)
                         fixPropertyFailed = True
-                        printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(p,ex),log)
+                        printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(p,ex),self.log)
             elif not (new_atime_orig):
                 if (self.fix  == 2) or (self.fix  == 6):
                     try:
@@ -570,7 +570,7 @@ class Bitrot(object):
                     except Exception as ex:
                         warnings.append(f)
                         fixPropertyFailed = True
-                        printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(p,ex),log)
+                        printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(p,ex),self.log)
 
             if not new_mtime_orig or not new_atime_orig:
                 if (fixPropertyFailed == False):
@@ -591,7 +591,7 @@ class Bitrot(object):
                 warnings.append(p)
                 printAndOrLog('\nWarning: Cannot compute hash of {} [{}]'.format(
                             #p, errno.errorcode[e.args[0]]))
-                            p.decode(FSENCODING), errno.errorcode[e.args[0]]),log)
+                            p.decode(FSENCODING), errno.errorcode[e.args[0]]),self.log)
                 continue
 
             cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
@@ -632,7 +632,7 @@ class Bitrot(object):
                         '\n\nError: {} mismatch for {}\nExpected: {}\nGot:      {}'
                         '\nLast good hash checked on {}'.format(
                         #p, stored_hash, new_hash, stored_ts
-                        self.hashing_function,p.decode(FSENCODING), stored_hash, new_hash, stored_ts),log)   
+                        self.hashing_function,p.decode(FSENCODING), stored_hash, new_hash, stored_ts),self.log)   
                 FIMErrorCounter += 1    
 
         if (self.email):
@@ -680,9 +680,9 @@ class Bitrot(object):
 
         if warnings:
             if len(warnings) == 1:
-                printAndOrLog('Warning: There was 1 warning found.',log)
+                printAndOrLog('Warning: There was 1 warning found.',self.log)
             else:
-                printAndOrLog('Warning: There were {} warnings found.'.format(len(warnings)),log)
+                printAndOrLog('Warning: There were {} warnings found.'.format(len(warnings)),self.log)
 
         if errors:
             if len(errors) == 1:
