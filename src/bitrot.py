@@ -59,6 +59,19 @@ if sys.version[0] == '2':
     str = type(u'text')
     # use \'bytes\' for bytestrings
 
+def printAndOrLog(stringToProcess,log):
+    print(stringToProcess)
+    if (log):
+        writeToLog('\n')
+        writeToLog(stringToProcess)
+
+def writeToLog(stringToWrite=""):
+    log_path = get_path(ext=b'log')
+    stringToWrite = cleanString(stringToWrite)
+    with open(log_path, 'a') as logFile:
+        logFile.write(stringToWrite)
+        logFile.close()
+
 def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
@@ -78,22 +91,8 @@ def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
         server.sendmail(FROMADDR, TOADDR, msg.as_string())
         server.quit()
     except Exception as err:
-        print('Email sending error:', err)
-        if (log):
-            writeToLog('\n\nEmail sending error: {}'.format(err))
+        printAndOrLog('\nEmail sending error: {}'.format(err),log)
 
-def printAndOrLog(stringToProcess,log):
-    print(stringToProcess)
-    if (log):
-        writeToLog('\n')
-        writeToLog(stringToProcess)
-
-def writeToLog(stringToWrite=""):
-    log_path = get_path(ext=b'log')
-    stringToWrite = cleanString(stringToWrite)
-    with open(log_path, 'a') as logFile:
-        logFile.write(stringToWrite)
-        logFile.close()
 
 def writeToSFV(stringToWrite="", sfv=""):
     if (sfv == "MD5"):
@@ -119,8 +118,7 @@ def hash(path, chunk_size,hashing_function="",log=1,sfv=""):
         digest=hashlib.sha512() 
     else:
         #You should never get here
-        if (log):
-            writeToLog('\nInvalid hash function detected.')
+        printAndOrLog('Invalid hash function detected.',log)
         raise Exception('Invalid hash function detected.')
 
     with open(path, 'rb') as f:
@@ -245,9 +243,8 @@ def get_sqlite3_cursor(path, copy=False):
         if not os.path.exists(path):
             raise ValueError("Error: bitrot database at {} does not exist."
                              "".format(path))
-            if (log):
-                writeToLog("\nError: bitrot database at {} does not exist."
-                    "".format(path))
+            printAndOrLog("\nError: bitrot database at {} does not exist."
+                    "".format(path),log)
         db_copy = tempfile.NamedTemporaryFile(prefix='bitrot_', suffix='.db',
                                               delete=False)
         with open(path, 'rb') as db_orig:
@@ -351,8 +348,7 @@ def list_existing_paths(directory, expected=(), ignored=(), included=(),
                 binary_stderr.write(b"\rWarning: cannot decode file name: ")
                 binary_stderr.write(p)
                 binary_stderr.write(b"\n")
-                if (log):
-                    writeToLog("\nWarning: cannot decode file name: {}".format(p))
+                printAndOrLog("\nWarning: cannot decode file name: {}".format(p),log)
                 continue
 
             try:
@@ -444,7 +440,7 @@ class Bitrot(object):
                 'No database exists so cannot test. Run the tool once first.',
             )
             if (log):
-                writeToLog("\nNo database exists so cannot test. Run the tool once first.")
+                printAndOrLog("\nNo database exists so cannot test. Run the tool once first.",log)
 
         cur = conn.cursor()
         new_paths = []
@@ -924,9 +920,7 @@ def check_sha512_integrity(verbosity=1, log=1):
         return
 
     if verbosity:
-        print('Checking bitrot.db integrity... ', end='')
-        if (log):
-            writeToLog('\nChecking bitrot.db integrity... ')
+        printAndOrLog('Checking bitrot.db integrity... ',log)
         sys.stdout.flush()
     with open(sha512_path, 'rb') as f:
         old_sha512 = f.read().strip()
@@ -1115,8 +1109,7 @@ def run_from_command_line():
             log_path = get_path(ext=b'log')
             if (verbosity):
                 if os.path.exists(log_path):
-                    writeToLog('\n')
-                    writeToLog('======================================================\n')
+                    writeToLog('\n======================================================\n')
                 writeToLog('Log started at ')
                 writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         include_list = []
@@ -1299,10 +1292,7 @@ def run_from_command_line():
         try:
             bt.run()
         except BitrotException as bre:
-            print('Error:', bre.args[1], file=sys.stderr)
-            if (args.log):
-                writeToLog('\nError: ')
-                writeToLog(bre.args[1])
+            printAndOrLog('Error: {}'.format(bre.args[1]),args.log)
             sys.exit(bre.args[0])
 
 if __name__ == '__main__':
