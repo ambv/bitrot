@@ -57,7 +57,7 @@ DEFAULT_HASH_FUNCTION = "SHA512"
 
 if sys.version[0] == '2':
     str = type(u'text')
-    # use `bytes` for bytestrings
+    # use \'bytes\' for bytestrings
 
 def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
@@ -81,6 +81,96 @@ def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
         print('Email sending error:', err)
         if (log):
             writeToLog('\n\nEmail sending error: {}'.format(err))
+
+def printAndOrLog(stringToProcess,log):
+    print(stringToProcess)
+    if (log):
+        writeToLog('\n')
+        writeToLog(stringToProcess)
+
+def writeToLog(stringToWrite=""):
+    log_path = get_path(ext=b'log')
+    stringToWrite = cleanString(stringToWrite)
+    with open(log_path, 'a') as logFile:
+        logFile.write(stringToWrite)
+        logFile.close()
+
+def writeToSFV(stringToWrite="", sfv=""):
+    if (sfv == "MD5"):
+        sfv_path = get_path(ext=b'md5')
+    elif (sfv == "SFV"):
+        sfv_path = get_path(ext=b'sfv')
+    with open(sfv_path, 'a') as sfvFile:
+        sfvFile.write(stringToWrite)
+        sfvFile.close()
+
+def hash(path, chunk_size,hashing_function="",log=1,sfv=""):
+    if   (hashing_function == "MD5"):
+        digest=hashlib.md5()          
+    elif (hashing_function == "SHA1"):
+        digest=hashlib.sha1()
+    elif (hashing_function == "SHA224"):
+        digest=hashlib.sha224()
+    elif (hashing_function == "SHA384"):
+        digest=hashlib.sha384()
+    elif (hashing_function == "SHA256"):
+        digest=hashlib.sha256()
+    elif (hashing_function == "SHA512"):
+        digest=hashlib.sha512() 
+    else:
+        #You should never get here
+        if (log):
+            writeToLog('\nInvalid hash function detected.')
+        raise Exception('Invalid hash function detected.')
+
+    with open(path, 'rb') as f:
+        d = f.read(chunk_size)
+        while d:
+            digest.update(d)
+            d = f.read(chunk_size)
+
+    if (sfv != ""):
+        strippedPathString = str(pathStripper(path,sfv))
+        if (sfv == "MD5" and hashing_function.upper() == "MD5"):
+            sfvDigest = digest.hexdigest()
+            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,strippedPathString),sfv=sfv) 
+        elif (sfv == "MD5"):
+            sfvDigest = hashlib.md5()
+            with open(path, 'rb') as f2:
+                d2 = f2.read(chunk_size)
+                while d2:
+                    sfvDigest.update(d2)
+                    d2 = f2.read(chunk_size)
+            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv) 
+        elif (sfv == "SFV"):
+            with open(path, 'rb') as f2:
+                d2 = f2.read(chunk_size)
+                crcvalue = 0
+                while d2:
+                    #zlib is faster
+                    #import timeit
+                    #print("b:", timeit.timeit("binascii.crc32(data)", setup="import binascii, zlib; data=b'X'*4096", number=100000))
+                    #print("z:", timeit.timeit("zlib.crc32(data)",     setup="import binascii, zlib; data=b'X'*4096", number=100000))
+                    #Result:
+                    #b: 1.0176826480001182
+                    #z: 0.4006126120002591
+                    
+                    crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
+                    #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
+                    d2 = f2.read(chunk_size)
+            writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
+
+
+    return digest.hexdigest()
+
+def pathStripper(pathToStrip="",sfv=""):
+    pathToStripString = cleanString(str(pathToStrip))
+    pathToStripString = pathToStripString.replace("b'.\\\\", "")
+    pathToStripString = pathToStripString.replace("\\\\", "\\")
+    pathToStripString = pathToStripString[:-1]
+    if (sfv == "MD5"):
+        pathToStripString = "*" + pathToStripString
+    return pathToStripString
 
 def is_int(val):
     if type(val) == int:
@@ -155,7 +245,7 @@ def get_sqlite3_cursor(path, copy=False):
         if not os.path.exists(path):
             raise ValueError("Error: bitrot database at {} does not exist."
                              "".format(path))
-            if (self.log):
+            if (log):
                 writeToLog("\nError: bitrot database at {} does not exist."
                     "".format(path))
         db_copy = tempfile.NamedTemporaryFile(prefix='bitrot_', suffix='.db',
@@ -192,9 +282,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=5, warnings = (), fi
             if (isDirtyString(f)):
                 if (fix == 3) or (fix == 5):
                     warnings.append(f)
-                    print('\rWarning: Invalid character detected in filename`{}`'.format(os.path.join(root, f)))
-                    if (log):
-                        writeToLog('rWarning: Invalid character detected in filename`{}`'.format(os.path.join(root, f)))
+                    printAndOrLog('Warning: Invalid character detected in filename\'{}\''.format(os.path.join(root, f)),log)
                 try:
                     # chdir before renaming
                     #os.chdir(root)
@@ -206,14 +294,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=5, warnings = (), fi
                     p_uni = cleanString(f)
                 except Exception as ex:
                     warnings.append(f)
-                    print(
-                        '\rWarning: Can\'t rename: {} due to warning: `{}`'.format(
-                            os.path.join(root, f),ex,
-                        ),
-                        file=sys.stderr,
-                    )
-                    if (log):
-                        writeToLog('Can\'t rename: {} due to warning: `{}`'.format(os.path.join(root, f),ex))
+                    printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(os.path.join(root, f),ex),log)
                     continue
                 else:
                     fixedRenameList.append([])
@@ -235,14 +316,7 @@ def fix_existing_paths(directory, verbosity = 1, log=1, fix=5, warnings = (), fi
                     p_uni = cleanString(d)
                 except Exception as ex:
                     warnings.append(d)
-                    print(
-                        '\rCan\'t rename: {} due to warning: `{}`'.format(
-                            os.path.join(root, d),ex,
-                        ),
-                        file=sys.stderr,
-                    )
-                    if (log):
-                        writeToLog('Can\'t rename: {} due to warning: `{}`'.format(os.path.join(root, d),ex))
+                    printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(os.path.join(root, d),ex),log)
                     continue
                 else:
                     fixedRenameList.append([])
@@ -256,11 +330,11 @@ def list_existing_paths(directory, expected=(), ignored=(), included=(),
                         verbosity=1, follow_links=False, log=1, fix=0, warnings = ()):
     """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
 
-    Returns a tuple with a list with existing files in `directory` and their
-    `total_size`.
+    Returns a tuple with a list with existing files in \'directory\' and their
+    \'total_size\'.
 
-    Doesn't add entries listed in `ignored`.  Doesn't add symlinks if
-    `follow_links` is False (the default).  All entries present in `expected`
+    Doesn't add entries listed in \'ignored\'.  Doesn't add symlinks if
+    \'follow_links\' is False (the default).  All entries present in \'expected\'
     must be files (can't be directories or symlinks).
     """
     paths = []
@@ -369,7 +443,7 @@ class Bitrot(object):
                 2,
                 'No database exists so cannot test. Run the tool once first.',
             )
-            if (self.log):
+            if (log):
                 writeToLog("\nNo database exists so cannot test. Run the tool once first.")
 
         cur = conn.cursor()
@@ -424,17 +498,8 @@ class Bitrot(object):
                     # this run or is (temporarily?) locked with different
                     # permissions. We'll just skip it for now.
                     warnings.append(p)
-                    print(
-                        '\rWarning: `{}` is currently unavailable for '
-                        'reading: {}'.format(
-                            #p_uni, ex,
-                            p.decode(FSENCODING), ex,
-                        ),
-                        file=sys.stderr,
-                    )
-                    if (self.log):
-                        #writeToLog('\nWarning: `{}` is currently unavailable for reading: {}'.format(p_uni, ex))
-                        writeToLog('\nWarning: `{}` is currently unavailable for reading: {}'.format(p.decode(FSENCODING), ex))
+                    #writeToLog('\nWarning: \'{}\' is currently unavailable for reading: {}'.format(p_uni, ex))
+                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p.decode(FSENCODING), ex),log)
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
@@ -456,23 +521,17 @@ class Bitrot(object):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    print('\rWarning: `{}` has an invalid access and modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
-                    if (self.log):
-                         writeToLog('\nWarning: `{}` has an invalid access and modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
+                    printAndOrLog('Warning: \'{}\' has an invalid access and modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)),log)
             elif not (new_mtime):
                 new_mtime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    print('\rWarning: `{}` has an invalid modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
-                    if (self.log):
-                         writeToLog('\nWarning: `{}` has an invalid modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
+                    printAndOrLog('Warning: \'{}\' has an invalid modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)),log)
             elif not (new_atime):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    print('\rWarning: `{}` has an invalid access date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
-                    if (self.log):
-                         writeToLog('\nWarning: `{}` has an invalid access date. Try running with -f to fix.'.format(p.decode(FSENCODING)))
+                    printAndOrLog('Warning: \'{}\' has an invalid access date. Try running with -f to fix.'.format(p.decode(FSENCODING)),log)
 
             b = datetime.datetime.fromtimestamp(new_mtime)
             c = datetime.datetime.fromtimestamp(new_atime)
@@ -495,14 +554,7 @@ class Bitrot(object):
                     except Exception as ex:
                         warnings.append(f)
                         fixPropertyFailed = True
-                        print(
-                            '\rWarning: Can\'t fix timestamps on: {} due to warning: `{}`'.format(
-                                p,ex,
-                            ),
-                            file=sys.stderr,
-                        )
-                        if (self.log):
-                            writeToLog('Can\'t rename: {} due to warning: `{}`'.format(p,ex))
+                        printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(p,ex),log)
             elif not (new_mtime_orig):
                 if (self.fix  == 2) or (self.fix  == 6):
                     try:
@@ -510,14 +562,7 @@ class Bitrot(object):
                     except Exception as ex:
                         warnings.append(p)
                         fixPropertyFailed = True
-                        print(
-                            '\rWarning: Can\'t fix timestamps on: {} due to warning: `{}`'.format(
-                                p,ex,
-                            ),
-                            file=sys.stderr,
-                        )
-                        if (self.log):
-                            writeToLog('Can\'t rename: {} due to warning: `{}`'.format(p,ex))
+                        printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(p,ex),log)
             elif not (new_atime_orig):
                 if (self.fix  == 2) or (self.fix  == 6):
                     try:
@@ -525,14 +570,7 @@ class Bitrot(object):
                     except Exception as ex:
                         warnings.append(f)
                         fixPropertyFailed = True
-                        print(
-                            '\rWarning: Can\'t fix timestamps on: {} due to warning: `{}`'.format(
-                                p,ex,
-                            ),
-                            file=sys.stderr,
-                        )
-                        if (log):
-                            writeToLog('Can\'t rename: {} due to warning: `{}`'.format(p,ex))
+                        printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(p,ex),log)
 
             if not new_mtime_orig or not new_atime_orig:
                 if (fixPropertyFailed == False):
@@ -551,17 +589,9 @@ class Bitrot(object):
                 new_hash = hash(p, self.chunk_size,self.hashing_function,log=self.log,sfv=self.sfv)
             except (IOError, OSError) as e:
                 warnings.append(p)
-                print(
-                    '\rWarning: Cannot compute hash of {} [{}]'.format(
-                        #p, errno.errorcode[e.args[0]],
-                        p.decode(FSENCODING),errno.errorcode[e.args[0]],
-                    ),
-                    file=sys.stderr,
-                )
-                if (self.log):
-                    writeToLog('\n\nWarning: Cannot compute hash of {} [{}]'.format(
+                printAndOrLog('\nWarning: Cannot compute hash of {} [{}]'.format(
                             #p, errno.errorcode[e.args[0]]))
-                            p.decode(FSENCODING), errno.errorcode[e.args[0]]))
+                            p.decode(FSENCODING), errno.errorcode[e.args[0]]),log)
                 continue
 
             cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
@@ -598,20 +628,11 @@ class Bitrot(object):
                 emails[FIMErrorCounter].append(new_hash)
                 emails[FIMErrorCounter].append(stored_ts)
 
-                print(
-                    '\rError: {} mismatch for {}\nExpected: {}\nGot:      {}'
-                    '\nLast good hash checked on {}\n'.format(
-                    #p, stored_hash, new_hash, stored_ts
-                    self.hashing_function,p.decode(FSENCODING), stored_hash, new_hash, stored_ts
-                    ),
-                    file=sys.stderr,
-                )
-                if (self.log):
-                    writeToLog(
+                printAndOrLog(
                         '\n\nError: {} mismatch for {}\nExpected: {}\nGot:      {}'
                         '\nLast good hash checked on {}'.format(
                         #p, stored_hash, new_hash, stored_ts
-                        self.hashing_function,p.decode(FSENCODING), stored_hash, new_hash, stored_ts))   
+                        self.hashing_function,p.decode(FSENCODING), stored_hash, new_hash, stored_ts),log)   
                 FIMErrorCounter += 1    
 
         if (self.email):
@@ -645,6 +666,7 @@ class Bitrot(object):
                 fixedRenameCounter,
                 fixedPropertiesList,
                 fixedPropertiesCounter,
+                self.log
             )
 
         if not self.test:
@@ -658,13 +680,9 @@ class Bitrot(object):
 
         if warnings:
             if len(warnings) == 1:
-                print('Warning: There was 1 warning found.')
-                if (self.log):
-                    writeToLog('\nWarning: There was 1 warning found.')
+                printAndOrLog('Warning: There was 1 warning found.',log)
             else:
-                print('Warning: There were {} warnings found.'.format(len(warnings)))
-                if (self.log):
-                    writeToLog('\nWarning: There were {} warnings found.'.format(len(warnings)))
+                printAndOrLog('Warning: There were {} warnings found.'.format(len(warnings)),log)
 
         if errors:
             if len(errors) == 1:
@@ -715,221 +733,140 @@ class Bitrot(object):
     def report_done(
         self, total_size, all_count, error_count, warning_count, new_paths, updated_paths,
         renamed_paths, missing_paths, tooOldList, ignoredList, fixedRenameList, fixedRenameCounter,
-        fixedPropertiesList, fixedPropertiesCounter):
+        fixedPropertiesList, fixedPropertiesCounter, log):
 
         sizeUnits , total_size = calculateUnits(total_size=total_size)
         totalFixed = fixedRenameCounter + fixedPropertiesCounter
         if (error_count == 1):
-                print('\rFinished. {:.2f} {} of data read. 1 error found.'.format(total_size,sizeUnits),end="")
-                if (self.log):
-                    writeToLog('\n\nFinished. {:.2f} {} of data read. 1 error found.'.format(total_size,sizeUnits))
+                printAndOrLog('\nFinished. {:.2f} {} of data read. 1 error found.'.format(total_size,sizeUnits),log)
         else:
-            print('\rFinished. {:.2f} {} of data read. {} errors found.'.format(total_size, sizeUnits, error_count),end="")
-            if (self.log):
-                writeToLog('\n\nFinished. {:.2f} {} of data read. {} errors found.'.format(total_size, sizeUnits, error_count))
+            printAndOrLog('\nFinished. {:.2f} {} of data read. {} errors found.'.format(total_size, sizeUnits, error_count),log)
 
         if (warning_count == 1):
-            print(' 1 warning found.')
-            if (self.log):
-                writeToLog(' 1 warning found.')
+            printAndOrLog(' 1 warning found.',log)
         else:
-            print(' {} warnings found.'.format(warning_count))
-            if (self.log):
-                writeToLog(' {} warnings found.'.format(warning_count))
+           printAndOrLog(' {} warnings found.'.format(warning_count),log)
 
         if self.verbosity >= 1:
             if (all_count == 1):
-                print(
-                    '1 entry in the database, {} new, {} updated, '
-                    '{} renamed, {} missing, {} skipped, {} fixed.'.format(
-                        len(new_paths), len(updated_paths),
-                        len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed))
-                if (self.log):
-                    writeToLog(
+                printAndOrLog(
                     '\n1 entry in the database, {} new, {} updated, '
                     '{} renamed, {} missing, {} skipped, {} fixed'.format(
                         len(new_paths), len(updated_paths),
-                        len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed))
+                        len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed),log)
             else:
-                print(
-                '{} entries in the database, {} new, {} updated, '
-                '{} renamed, {} missing, {} skipped, {} fixed.'.format(
-                    all_count, len(new_paths), len(updated_paths),
-                    len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed))
-                if (self.log):
-                    writeToLog(
+                printAndOrLog(
                     '\n{} entries in the database, {} new, {} updated, '
                     '{} renamed, {} missing, {} skipped, {} fixed.'.format(
                         all_count, len(new_paths), len(updated_paths),
-                        len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed))
+                        len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed),log)
 
         # if self.verbosity >= 2:
         #     if (all_count == 1):
         #         print('1 entry in the database.')
-        #         if (self.log):
+        #         if (log):
         #             writeToLog('1 entry in the database.')
         #     else:
         #         print('{} entries in the database.'.format(all_count), end=' ')
-        #         if (self.log):
+        #         if (log):
         #             writeToLog('\n{} entries in the database.'.format(all_count))
 
         if self.verbosity >= 4:
             if (ignoredList):
                 if (len(ignoredList) == 1):
-                    print("\n1 files excluded: ")
-                    if (self.log):
-                        writeToLog("\n\n1 files excluded: ")
+                    printAndOrLog("\n1 files excluded: ",log)
                     for row in ignoredList:
-                        print("  {}".format(row))
-                        if (self.log):
-                            writeToLog("  \n{}".format(row))
+                        printAndOrLog("  \n{}".format(row),log)
                 else:
-                    print("\n{} files excluded: ".format(len(ignoredList)))
-                    if (self.log):
-                        writeToLog("\n\n{} files excluded: ".format(len(ignoredList)))
+                    printAndOrLog("\n{} files excluded: ".format(len(ignoredList)),log)
                     for row in ignoredList:
-                        print("  {}".format(row))
-                        if (self.log):
-                            writeToLog("  \n{}".format(row))
+                        printAndOrLog("  \n{}".format(row),log)
 
                 if (tooOldList):
                     if (len(tooOldList) == 1):
-                        print("\n1 non-recent files ignored: ")
-                        if (self.log):
-                            writeToLog("\n\n1 non-recent files ignored: ")
+                        printAndOrLog("\n1 non-recent files ignored: ",log)
                         for row in tooOldList:
-                            print("  {}".format(row))
-                            if (self.log):
-                                writeToLog("  \n{}".format(row))
+                            printAndOrLog("  \n{}".format(row),log)
                     else:
-                        print("\n{} non-recent files ignored:".format(len(tooOldList)))
-                        if (self.log):
-                            writeToLog("\n\n{} non-recent files ignored".format(len(tooOldList)))
+                        printAndOrLog("\n{} non-recent files ignored".format(len(tooOldList)),log)
                         for row in tooOldList:
-                            print("  {}".format(row))
-                            if (self.log):
-                                writeToLog("  \n{}".format(row))
+                            printAndOrLog("  \n{}".format(row),log)
 
         if self.verbosity >= 3:
             if new_paths:
                 if (len(new_paths) == 1):
-                    print('\n1 new entry:')
-                    if (self.log):
-                        writeToLog('\n\n1 new entry:')
+                    printAndOrLog('\n1 new entry:',log)
                 else:
-                    print('\n{} new entries:'.format(len(new_paths)))
-                    if (self.log):
-                        writeToLog('\n\n{} new entries:'.format(len(new_paths)))
+                    printAndOrLog('\n{} new entries:'.format(len(new_paths)),log)
 
                 new_paths.sort()
                 for path in new_paths:
-                    print(' ', path.decode(FSENCODING))
-                    if (self.log):
-                        writeToLog('\n {}'.format(path.decode(FSENCODING)))
+                    printAndOrLog(' {}'.format(path.decode(FSENCODING)),log)
 
             if updated_paths:
                 if (len(updated_paths) == 1):
-                    print('\n1 entry updated:')
-                    if (self.log):
-                        writeToLog('\n\n1 entry updated:')
+                   printAndOrLog('\n1 entry updated:',log)
                 else:
-                    print('\n{} entries updated:'.format(len(updated_paths)))
-                    if (self.log):
-                        writeToLog('\n\n{} entries updated:'.format(len(updated_paths)))
+                    printAndOrLog('\n{} entries updated:'.format(len(updated_paths)),log)
 
                 updated_paths.sort()
                 for path in updated_paths:
-                    print(' ', path.decode(FSENCODING))
-                    if (self.log):
-                        writeToLog('\n {}'.format(path.decode(FSENCODING)))
+                    printAndOrLog(' {}'.format(path.decode(FSENCODING)),log)
 
             if renamed_paths:
                 if (len(renamed_paths) == 1):
-                    print('\n1 entry renamed:')
-                    if (self.log):
-                        writeToLog('\n\n1 entry renamed:')
+                    printAndOrLog('\n1 entry renamed:',log)
                 else:
-                    print('\n{} entries renamed:'.format(len(renamed_paths)))
-                    if (self.log):
-                        writeToLog('\n\n{} entries renamed:'.format(len(renamed_paths)))
+                    printAndOrLog('\n{} entries renamed:'.format(len(renamed_paths)),log)
 
                 renamed_paths.sort()
                 for path in renamed_paths:
-                    print(
-                        '  from',
-                        #path[0].decode(FSENCODING),
-                        path[0],
-                        'to',
-                        #path[1].decode(FSENCODING),
-                        path[1],
-                    )
-                    if (self.log):
-                        writeToLog('\n from {} to {}'.format(path[0],path[1]))
+                    printAndOrLog(' from {} to {}'.format(path[0],path[1]),log)
                     
         if self.verbosity >= 2:
             if missing_paths:
                 if (len(missing_paths) == 1):
-                    print('\n1 entry missing:')
-                    if (self.log):
-                        writeToLog('\n\n1 entry missing:')
+                    printAndOrLog('\n1 entry missing:',log)
                 else:
-                    print('\n{} entries missing:'.format(len(missing_paths)))
-                    if (self.log):
-                        writeToLog('\n\n{} entries missing:'.format(len(missing_paths)))
+                    printAndOrLog('\n{} entries missing:'.format(len(missing_paths)),log)
 
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
-                    print(' ', path)
-                    if (self.log):
-                        writeToLog('\n {}'.format(path))
+                   printAndOrLog(' {}'.format(path),log)
 
         if fixedRenameList:
             if (self.fix == 4) or (self.fix == 6) or (self.verbosity >= 2):
                 if (len(fixedRenameList) == 1):
-                    print('\n1 filename fixed:')
-                    if (self.log):
-                        writeToLog('\n\n1 filename fixed:')
+                    printAndOrLog('\n1 filename fixed:',log)
                 else:
-                    print('\n{} filenames fixed:'.format(fixedRenameCounter))
-                    if (self.log):
-                        writeToLog('\n\n{} filenames fixed:'.format(fixedRenameCounter))
+                    printAndOrLog('\n{} filenames fixed:'.format(fixedRenameCounter),log)
 
                 for i in range(0, fixedRenameCounter):
-                    print('  renamed `{}` to `{}`'.format(fixedRenameList[i][0],fixedRenameList[i][1]))
-                    if (self.log):
-                        writeToLog('\n  `{}` to `{}`'.format(fixedRenameList[i][0],fixedRenameList[i][1]))
+                    printAndOrLog('  \'{}\' to \'{}\''.format(fixedRenameList[i][0],fixedRenameList[i][1]),log)
        
         if fixedPropertiesList:
             if (self.fix == 2) or (self.fix == 6) or (self.verbosity >= 2):
                 if (len(fixedPropertiesList) == 1):
-                    print('\n1 file property fixed:')
-                    if (self.log):
-                        writeToLog('\n\n1 file property fixed:')
+                    printAndOrLog('\n1 file property fixed:',log)
                 else:
-                    print('\n{} file properties fixed:'.format(fixedPropertiesCounter))
-                    if (self.log):
-                        writeToLog('\n\n{} file properties fixed:'.format(fixedPropertiesCounter))
+                    printAndOrLog('\n{} file properties fixed:'.format(fixedPropertiesCounter),log)
 
                 for i in range(0, fixedPropertiesCounter):
-                    print('  Added missing access or modification timestamp to {}'.format(fixedPropertiesList[i][0]))
-                    if (self.log):
-                        writeToLog('  Added missing access or modification timestamp to {}'.format(fixedPropertiesList[i][0]))
+                    printAndOrLog('  Added missing access or modification timestamp to {}'.format(fixedPropertiesList[i][0]),log)
             
                         
-        if any((new_paths, updated_paths, missing_paths, renamed_paths, ignoredList, tooOldList)):
-            if (self.log):
-                writeToLog('\n')
+        #if any((new_paths, updated_paths, missing_paths, renamed_paths, ignoredList, tooOldList)):
+        #    if (self.log):
+        #        writeToLog('\n')
 
         if self.test and self.verbosity:
-            print('\nDatabase file not updated on disk (test mode).')
-            if (self.log):
-                writeToLog('\nDatabase file not updated on disk (test mode).')
+            printAndOrLog('Database file not updated on disk (test mode).',log)
 
     def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1):
         """Either add a new entry to the database or update the existing entry
         on rename.
 
-        Returns `new_path` if the entry was indeed new or the `stored_path` (e.g.
+        Returns \'new_path\' if the entry was indeed new or the \'stored_path\' (e.g.
         outdated path) if there was a rename.
         """
         cur.execute('SELECT mtime, path, timestamp FROM bitrot WHERE hash=?',
@@ -1000,43 +937,22 @@ def check_sha512_integrity(verbosity=1, log=1):
     new_sha512 = digest.hexdigest().encode('ascii')
     if new_sha512 != old_sha512:
         if len(old_sha512) == 128:
-            print(
+            printAndOrLog(
                 "\nError: SHA512 of the database file is different, bitrot.db might "
-                "be corrupt.",
-            )
-            if (log):
-                writeToLog(
-                "\nError: SHA512 of the database file is different, bitrot.db might "
-                "be corrupt.",
-            )
+                "be corrupt.",log)
         else:
-            print(
+            printAndOrLog(
                 "\nError: SHA512 of the database file is different, but bitrot.sha512 "
-                "has a suspicious length. It might be corrupt.",
-            )
-            if (log):
-                writeToLog(
-                "\nError: SHA512 of the database file is different, but bitrot.sha512 "
-                "has a suspicious length. It might be corrupt.",
-            )
-        print(
-            "If you'd like to continue anyway, delete the .bitrot.sha512 "
-            "file and try again.",
-            file=sys.stderr,
-        )
-        if (log):
-            writeToLog(
-            "\nIf you'd like to continue anyway, delete the .bitrot.sha512 file and try again.")
-            writeToLog("\nbitrot.db integrity check failed, cannot continue.")
+                "has a suspicious length. It might be corrupt.",log)
+        printAndOrLog("If you'd like to continue anyway, delete the .bitrot.sha512 file and try again.")
+        printAndOrLog("bitrot.db integrity check failed, cannot continue.",log)
 
         raise BitrotException(
             3, 'bitrot.db integrity check failed, cannot continue.',
         )
 
     if verbosity:
-        print('ok.')
-        if (log):
-            writeToLog('ok.')
+        printAndOrLog('OK.',log)
 
 def update_sha512_integrity(verbosity=1, log=1):
     old_sha512 = 0
@@ -1052,134 +968,34 @@ def update_sha512_integrity(verbosity=1, log=1):
     new_sha512 = digest.hexdigest().encode('ascii')
     if new_sha512 != old_sha512:
         if verbosity:
-            print('Updating bitrot.sha512... ', end='')
-            if (log):
-                writeToLog('\nUpdating bitrot.sha512... ')
+            printAndOrLog('Updating bitrot.sha512... ',log)
             sys.stdout.flush()
         with open(sha512_path, 'wb') as f:
             f.write(new_sha512)
         if verbosity:
-            print('done.')
-            if (log):
-                writeToLog('done.')
+            printAndOrLog('done.',log)
 
 def recordTimeElapsed(startTime=0, log=1):
     elapsedTime = (time.time() - startTime)  
     if (elapsedTime > 3600):
         elapsedTime /= 3600
         if ((int)(elapsedTime) == 1):
-            print('Time elapsed: 1 hour.')
-            if (log):
-                writeToLog('\nTime elapsed: 1 hour.')
+            printAndOrLog('Time elapsed: 1 hour.',log)
         else:
-            print('Time elapsed: {:.1f} hours.'.format(elapsedTime))
-            if (log):
-                writeToLog('\nTime elapsed: {:.1f} hours.'.format(elapsedTime))
+            printAndOrLog('Time elapsed: {:.1f} hours.'.format(elapsedTime),log)
 
     elif (elapsedTime > 60):
         elapsedTime /= 60
         if ((int)(elapsedTime) == 1):
-            print('Time elapsed: 1 minute.')
-            if (log):
-                writeToLog('\nTime elapsed: 1 minute.')
+            printAndOrLog('Time elapsed: 1 minute.',log)
         else:
-            print('Time elapsed: {:.0f} minutes.'.format(elapsedTime))
-            if (log):
-                writeToLog('\nTime elapsed: {:.0f} minutes.'.format(elapsedTime))
+            printAndOrLog('Time elapsed: {:.0f} minutes.'.format(elapsedTime),log)
 
     else:
         if ((int)(elapsedTime) == 1):
-            print('Time elapsed: 1 second.')
-            if (log):
-                writeToLog('\nTime elapsed: 1 second.')
+            printAndOrLog('Time elapsed: 1 second.',log)
         else:
-            print('Time elapsed: {:.0f} seconds.'.format(elapsedTime))
-            if (log):
-                 writeToLog('\nTime elapsed: {:.1f} seconds.'.format(elapsedTime))
-
-def writeToLog(stringToWrite=""):
-    log_path = get_path(ext=b'log')
-    stringToWrite = cleanString(stringToWrite)
-    with open(log_path, 'a') as logFile:
-        logFile.write(stringToWrite)
-        logFile.close()
-
-def writeToSFV(stringToWrite="", sfv=""):
-    if (sfv == "MD5"):
-        sfv_path = get_path(ext=b'md5')
-    elif (sfv == "SFV"):
-        sfv_path = get_path(ext=b'sfv')
-    with open(sfv_path, 'a') as sfvFile:
-        sfvFile.write(stringToWrite)
-        sfvFile.close()
-
-def hash(path, chunk_size,hashing_function="",log=1,sfv=""):
-    if   (hashing_function == "MD5"):
-        digest=hashlib.md5()          
-    elif (hashing_function == "SHA1"):
-        digest=hashlib.sha1()
-    elif (hashing_function == "SHA224"):
-        digest=hashlib.sha224()
-    elif (hashing_function == "SHA384"):
-        digest=hashlib.sha384()
-    elif (hashing_function == "SHA256"):
-        digest=hashlib.sha256()
-    elif (hashing_function == "SHA512"):
-        digest=hashlib.sha512() 
-    else:
-        #You should never get here
-        if (log):
-            writeToLog('\nInvalid hash function detected.')
-        raise Exception('Invalid hash function detected.')
-
-    with open(path, 'rb') as f:
-        d = f.read(chunk_size)
-        while d:
-            digest.update(d)
-            d = f.read(chunk_size)
-
-    if (sfv != ""):
-        strippedPathString = str(pathStripper(path,sfv))
-        if (sfv == "MD5" and hashing_function.upper() == "MD5"):
-            sfvDigest = digest.hexdigest()
-            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,strippedPathString),sfv=sfv) 
-        elif (sfv == "MD5"):
-            sfvDigest = hashlib.md5()
-            with open(path, 'rb') as f2:
-                d2 = f2.read(chunk_size)
-                while d2:
-                    sfvDigest.update(d2)
-                    d2 = f2.read(chunk_size)
-            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv) 
-        elif (sfv == "SFV"):
-            with open(path, 'rb') as f2:
-                d2 = f2.read(chunk_size)
-                crcvalue = 0
-                while d2:
-                    #zlib is faster
-                    #import timeit
-                    #print("b:", timeit.timeit("binascii.crc32(data)", setup="import binascii, zlib; data=b'X'*4096", number=100000))
-                    #print("z:", timeit.timeit("zlib.crc32(data)",     setup="import binascii, zlib; data=b'X'*4096", number=100000))
-                    #Result:
-                    #b: 1.0176826480001182
-                    #z: 0.4006126120002591
-                    
-                    crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
-                    #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
-                    d2 = f2.read(chunk_size)
-            writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
-
-
-    return digest.hexdigest()
-
-def pathStripper(pathToStrip="",sfv=""):
-    pathToStripString = cleanString(str(pathToStrip))
-    pathToStripString = pathToStripString.replace("b'.\\\\", "")
-    pathToStripString = pathToStripString.replace("\\\\", "\\")
-    pathToStripString = pathToStripString[:-1]
-    if (sfv == "MD5"):
-        pathToStripString = "*" + pathToStripString
-    return pathToStripString
+            printAndOrLog('Time elapsed: {:.1f} seconds.'.format(elapsedTime),log)
 
 def run_from_command_line():
     global FSENCODING
@@ -1189,9 +1005,9 @@ def run_from_command_line():
         help='follow symbolic links and store target files\' hashes. Once '
              'a path is present in the database, it will be checked against '
              'changes in content even if it becomes a symbolic link. In '
-             'other words, if you run `bitrot -l`, on subsequent runs '
+             'other words, if you run \'bitrot -l\', on subsequent runs '
              'symbolic links registered during the first run will be '
-             'properly followed and checked even if you run without `-l`.')
+             'properly followed and checked even if you run without \'-l\'.')
     parser.add_argument(
         '-s', '--sum', action='store_true',
         help='using only the data already gathered, return a SHA-512 sum '
@@ -1282,26 +1098,16 @@ def run_from_command_line():
             try:
                 verbosity = int(args.verbose)
                 if (verbosity == 2):
-                    print("Verbosity option selected: {}. List missing, and fixed entries.".format(args.verbose))
-                    if (args.log):
-                         writeToLog("\nVerbosity option selected: {}. List missing, and fixed entries.".format(args.verbose))
+                    printAndOrLog("Verbosity option selected: {}. List missing, and fixed entries.".format(args.verbose),args.log)
                 elif (verbosity == 3):
-                    print("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries.".format(args.verbose))
-                    if (args.log):
-                         writeToLog("\nVerbosity option selected: {}. List missing, fixed, new, renamed, and updated entries.".format(args.verbose))
+                    printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries.".format(args.verbose),args.log)
                 elif (verbosity == 4):
-                    print("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose))
-                    if (args.log):
-                         writeToLog("\nVerbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose))
+                    printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose),args.log)
                 elif not (verbosity == 0) and not (verbosity == 1):
-                    print("Invalid verbosity option selected: {}. Using default level 1.".format(args.verbose))
-                    if (args.log):
-                         writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
+                    printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
                     verbosity = 1
             except Exception as err:
-                print("Invalid verbosity option selected: {}. Using default level 1.".format(args.verbose))
-                if (args.log):
-                     writeToLog("\nInvalid test option selected: {}. Using default level 1.".format(args.verbose))
+                printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
                 verbosity = 1
                 pass
 
@@ -1316,15 +1122,11 @@ def run_from_command_line():
         include_list = []
         if args.include_list == '-':
             if verbosity:
-                print('Using stdin for file list')
-                if (args.log):
-                   writeToLog('\nUsing stdin for file list') 
+                printAndOrLog('Using stdin for file list',args.log) 
             include_list = sys.stdin
         elif args.include_list:
             if verbosity:
-                print('Opening file inclusion list at `{}`'.format(args.include_list))
-                if (args.log):
-                    writeToLog('\nOpening file inclusion list at `{}`'.format(args.include_list))
+                printAndOrLog('Opening file inclusion list at \'{}\''.format(args.include_list),args.log)
             try:
                 #include_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.include_list)]
                 with open(args.include_list) as includeFile:
@@ -1336,18 +1138,14 @@ def run_from_command_line():
 
             except Exception as err:
                 if (verbosity):
-                    print("Invalid inclusion list specified: `{}`. Not using an inclusion list. Received error: {}".format(args.include_list, err))
-                    if (args.log):
-                        writeToLog("\nInvalid inclusion list specified: `{}`. Not using an inclusion list. Received error: {}".format(args.include_list, err))
+                    printAndOrLog("Invalid inclusion list specified: \'{}\'. Not using an inclusion list. Received error: {}".format(args.include_list, err),args.log)
                 include_list = []
         else:
             include_list = []
         exclude_list = []
         if args.exclude_list:
             if verbosity:
-                print('Opening file exclusion list at `{}`'.format(args.exclude_list))
-                if (args.log):
-                    writeToLog('\nOpening file exclusion list at `{}`'.format(args.exclude_list))
+                printAndOrLog('Opening file exclusion list at \'{}\''.format(args.exclude_list),args.log)
             try:
                 # exclude_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.exclude_list)]
                 with open(args.exclude_list) as excludeFile:
@@ -1358,9 +1156,8 @@ def run_from_command_line():
                         excludeFile.close() # should be harmless if include_list == sys.stdin
             except Exception as err:
                 if (verbosity):
-                    print("Invalid exclusion list specified: `{}`. Not using an exclusion list. Received error: {}".format(args.exclude_list, err))
-                    if (args.log):
-                        writeToLog("\nInvalid exclusion list specified: `{}`. Not using an exclusion list. Received error: {}".format(args.exclude_list, err))
+                    print("Invalid exclusion list specified: \'{}\'. Not using an exclusion list. Received error: {}".format(args.exclude_list, err))
+                    printAndOrLog("Invalid exclusion list specified: \'{}\'. Not using an exclusion list. Received error: {}".format(args.exclude_list, err),args.log)
                 exclude_list = []
         else:
             exclude_list = []
@@ -1379,14 +1176,10 @@ def run_from_command_line():
             if (isValidHashingFunction(stringToValidate=args.hashing_function) == True):
                 hashing_function = args.hashing_function.upper()
                 if (verbosity):
-                    print('Using {} for hashing function.'.format(hashing_function))   
-                    if (args.log):
-                       writeToLog('\nUsing {} for hashing function.'.format(hashing_function))
+                    printAndOrLog('Using {} for hashing function.'.format(hashing_function),args.log)
             else:
                 if (verbosity):
-                    print("Invalid hashing function specified: {}. Using default {}.".format(args.hashing_function,DEFAULT_HASH_FUNCTION))
-                    if (args.log):
-                        writeToLog("\nInvalid hashing function specified: {}. Using default {}.".format(args.hashing_function,DEFAULT_HASH_FUNCTION))
+                    printAndOrLog("Invalid hashing function specified: {}. Using default {}.".format(args.hashing_function,DEFAULT_HASH_FUNCTION),args.log)
                 hashing_function = DEFAULT_HASH_FUNCTION
         else:
             hashing_function = DEFAULT_HASH_FUNCTION
@@ -1405,14 +1198,10 @@ def run_from_command_line():
             if (args.sfv.upper() == "MD5" or args.sfv.upper() == "SFV"): 
                 sfv = args.sfv.upper() 
                 if (verbosity):
-                    print('Will generate an {} file.'.format(sfv))   
-                    if (args.log):
-                       writeToLog('\nWill generate an {} file.'.format(sfv)) 
+                    printAndOrLog('Will generate an {} file.'.format(sfv),args.log) 
             else:
                 if (verbosity):
-                    print("Invalid SFV/MD5 filetype specified: {}. Will not generate any additional file.".format(args.sfv))
-                    if (args.log):
-                        writeToLog("\nInvalid SFV/MD5 filetype specified: {}. Will not generate any additional file.".format(args.sfv))
+                    printAndOrLog("Invalid SFV/MD5 filetype specified: {}. Will not generate any additional file.".format(args.sfv),args.log)
                 sfv = ""
         else:
             sfv = ""
@@ -1423,27 +1212,17 @@ def run_from_command_line():
                 test = int(args.test)
                 if (verbosity):
                     if (test == 0):
-                        print("Testing-only disabled.")
-                        if (args.log):
-                            writeToLog("\nTesting-only disabled.")
+                        printAndOrLog("Testing-only disabled.",args.log)
                     elif (test == 1):
-                        print("Just testing against an existing database, won\'t update anything.")
-                        if (args.log):
-                            writeToLog("\nJust testing against an existing database, won\'t update anything.")
+                        printAndOrLog("Just testing against an existing database, won\'t update anything.",args.log)
                     elif (test == 2):
-                        print("Won\'t compare dates, only hashes")
-                        if (args.log):
-                            writeToLog("\nWon\'t compare dates, only hashes")
+                        printAndOrLog("Won\'t compare dates, only hashes",args.log)
                     else:
-                        print("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test))
-                        if (args.log):
-                             writeToLog("\nInvalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test))
+                        printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
                         test = 0
             except Exception as err:
                 if (verbosity):
-                    print("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test))
-                    if (args.log):
-                         writeToLog("\nInvalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test))
+                    printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
                 test = 0
                 pass
 
@@ -1453,20 +1232,14 @@ def run_from_command_line():
                 recent = int(args.recent)
                 if (recent):
                     if (verbosity):
-                        print("Only processing files < {} days old.".format(args.recent))
-                        if (args.log):
-                            writeToLog("\nOnly processing files < {} days old.".format(args.recent))
+                        printAndOrLog("Only processing files < {} days old.".format(args.recent),args.log)
                 else:
                     if (verbosity):
-                        print("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent))
-                        if (args.log):
-                             writeToLog("\nInvalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent))
+                        printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
                     recent = 0
             except Exception as err:
                 if (verbosity):
-                    print("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent))
-                    if (args.log):
-                        writeToLog("\nInvalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent))
+                    printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
                 recent = 0
                 pass       
 
@@ -1476,50 +1249,32 @@ def run_from_command_line():
                 fix = int(args.fix)
                 if (fix == 0):
                     if (verbosity):
-                        print("Will not check problem files.")
-                        if (args.log):
-                            writeToLog("\nWill not check problem files.")
+                        printAndOrLog("Will not check problem files.",args.log)
                 elif (fix == 1):
                     if (verbosity):
-                        print("Will report files that have missing access and modification timestamps.")
-                        if (args.log):
-                            writeToLog("\nWill report files that have missing access and modification timestamps.")
+                        printAndOrLog("Will report files that have missing access and modification timestamps.",args.log)
                 elif (fix == 2):
                     if (verbosity):
-                        print("Fixes files that have missing access and modification timestamps.")
-                        if (args.log):
-                            writeToLog("\nFixes files that have missing access and modification timestamps.")
+                        printAndOrLog("Fixes files that have missing access and modification timestamps.",args.log)
                 elif (fix == 3):
                     if (verbosity):
-                        print("Will report files that have invalid characters")
-                        if (args.log):
-                            writeToLog("\nWill report files that have invalid characters")
+                        printAndOrLog("Will report files that have invalid characters",args.log)
                 elif (fix == 4):
                     if (verbosity):
-                        print("Fixes files by removing invalid characters. NOT RECOMMENDED.")
-                        if (args.log):
-                            writeToLog("\nFixes files by removing invalid characters. NOT RECOMMENDED.")
+                        printAndOrLog("Fixes files by removing invalid characters. NOT RECOMMENDED.",args.log)
                 elif (fix == 5):
                     if (verbosity):
-                        print("Will report files that have missing access and modification timestamps and invalid characters.")
-                        if (args.log):
-                            writeToLog("\nWill report files that have missing access and modification timestamps and invalid characters.")
+                        printAndOrLog("Will report files that have missing access and modification timestamps and invalid characters.",args.log)
                 elif (fix == 6):
                     if (verbosity):
-                        print("Fixes files by removing invalid characters and adding missing access and modification times. NOT RECOMMENDED.")
-                        if (args.log):
-                            writeToLog("\nFixes files by removing invalid characters and adding missing access and modification times. NOT RECOMMENDED.")
+                        printAndOrLog("Fixes files by removing invalid characters and adding missing access and modification times. NOT RECOMMENDED.",args.log)
                 else:
                     if (verbosity):
-                        print("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix))
-                        if (args.log):
-                             writeToLog("\nInvalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix))
+                        printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
                         fix = 5
             except Exception as err:
                 if (verbosity):
-                    print("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix))
-                    if (args.log):
-                         writeToLog("\nInvalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix))
+                    printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
                 fix = 5
                 pass
 
