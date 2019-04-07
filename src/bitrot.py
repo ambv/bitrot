@@ -458,6 +458,7 @@ class Bitrot(object):
                 
         missing_paths = self.select_all_paths(cur)
 
+
         if (self.fix >= 1):
             fixedRenameList, fixedRenameCounter = fix_existing_paths(
             os.getcwd(),# pass an unambiguous string instead of: b'.'  
@@ -469,6 +470,7 @@ class Bitrot(object):
             fixedRenameCounter = fixedRenameCounter
         )
 
+        print("Loading file list... Please wait...")
 
         paths, total_size, ignoredList = list_existing_paths(
             b'.', 
@@ -1176,7 +1178,6 @@ def run_from_command_line():
                 hashing_function = DEFAULT_HASH_FUNCTION
         else:
             hashing_function = DEFAULT_HASH_FUNCTION
-
         sfv_path = get_path(ext=b'sfv')
         md5_path = get_path(ext=b'md5')
         try:
