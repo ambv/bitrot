@@ -105,7 +105,7 @@ def writeToSFV(stringToWrite="", sfv=""):
         sfvFile.close()
 
 def hash(path, chunk_size,hashing_function="",log=1,sfv=""):
-    if   (hashing_function == "MD5"):
+    if (hashing_function == "MD5"):
         digest=hashlib.md5()          
     elif (hashing_function == "SHA1"):
         digest=hashlib.sha1()
