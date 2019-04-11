@@ -484,7 +484,7 @@ class Bitrot(object):
             warnings=warnings,
 
         )
-
+        print("Hashing files... Please wait...")
         FIMErrorCounter = 0;
         for p in paths:
             p_uni = p.decode(FSENCODING)
