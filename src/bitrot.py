@@ -75,12 +75,12 @@ def writeToLog(stringToWrite=""):
 def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
-    FROMADDR = 'author@gmail.com'
-    TOADDR  = 'recipient@gmail.com'
-    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
-    USERNAME = 'authorUsername'
-    PASSWORD = 'authorPassword'
+    FROMADDR = 'p1r473ifttt@gmail.com'
+    TOADDR  = 'subwayjared@gmail.com'
+    msg['To'] = email.utils.formataddr(('Jared', 'subwayjared@gmail.com'))
+    msg['From'] = email.utils.formataddr(('Jared', 'p1r473ifttt@gmail.com'))
+    USERNAME = 'p1r473ifttt'
+    PASSWORD = 'hD2TFZ2GG53RfbEFcySQUBbDzaaGBAmR9t4vtxhjKTvMQY7cmwhk6sET52knDMHCfAg3m6yECxjKY3fguGearunFDAJs9pdPuRWd'
 
     try:
         msg['Subject'] = subject
@@ -940,7 +940,7 @@ def check_sha512_integrity(verbosity=1, log=1):
             printAndOrLog(
                 "\nError: SHA512 of the database file is different, but bitrot.sha512 "
                 "has a suspicious length. It might be corrupt.",log)
-        printAndOrLog("If you'd like to continue anyway, delete the .bitrot.sha512 file and try again.")
+        printAndOrLog("If you'd like to continue anyway, delete the .bitrot.sha512 file and try again.",log)
         printAndOrLog("bitrot.db integrity check failed, cannot continue.",log)
 
         raise BitrotException(
