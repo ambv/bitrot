@@ -440,7 +440,7 @@ class Bitrot(object):
                 'No database exists so cannot test. Run the tool once first.',
             )
             if (log):
-                printAndOrLog("\nNo database exists so cannot test. Run the tool once first.",log)
+                printAndOrLog("\nNo database exists so cannot test. Run the tool once first.",self.log)
 
         cur = conn.cursor()
         new_paths = []
