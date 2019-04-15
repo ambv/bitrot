@@ -103,18 +103,18 @@ def writeToSFV(stringToWrite="", sfv=""):
         sfvFile.write(stringToWrite)
         sfvFile.close()
 
-def hash(path, chunk_size,hashing_function="",log=1,sfv=""):
-    if (hashing_function == "MD5"):
+def hash(path, chunk_size,algorithm="",log=1,sfv=""):
+    if (algorithm == "MD5"):
         digest=hashlib.md5()          
-    elif (hashing_function == "SHA1"):
+    elif (algorithm == "SHA1"):
         digest=hashlib.sha1()
-    elif (hashing_function == "SHA224"):
+    elif (algorithm == "SHA224"):
         digest=hashlib.sha224()
-    elif (hashing_function == "SHA384"):
+    elif (algorithm == "SHA384"):
         digest=hashlib.sha384()
-    elif (hashing_function == "SHA256"):
+    elif (algorithm == "SHA256"):
         digest=hashlib.sha256()
-    elif (hashing_function == "SHA512"):
+    elif (algorithm == "SHA512"):
         digest=hashlib.sha512() 
     else:
         #You should never get here
@@ -129,7 +129,7 @@ def hash(path, chunk_size,hashing_function="",log=1,sfv=""):
 
     if (sfv != ""):
         strippedPathString = str(pathStripper(path,sfv))
-        if (sfv == "MD5" and hashing_function.upper() == "MD5"):
+        if (sfv == "MD5" and algorithm.upper() == "MD5"):
             sfvDigest = digest.hexdigest()
             writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,strippedPathString),sfv=sfv) 
         elif (sfv == "MD5"):
@@ -392,7 +392,7 @@ class BitrotException(Exception):
 class Bitrot(object):
     def __init__(
         self, verbosity=1, email = False, log = False, test=0, recent = 0, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], hashing_function="", sfv="MD5", fix=0
+        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], algorithm="", sfv="MD5", fix=0
     ):
         self.verbosity = verbosity
         self.test = test
@@ -407,7 +407,7 @@ class Bitrot(object):
         self.email = email
         self.log = log
         self.startTime = time.time()
-        self.hashing_function = hashing_function
+        self.algorithm = algorithm
         self.sfv = sfv
         self.fix = fix
 
@@ -584,7 +584,7 @@ class Bitrot(object):
 
             missing_paths.discard(p_uni)
             try:
-                new_hash = hash(p, self.chunk_size,self.hashing_function,log=self.log,sfv=self.sfv)
+                new_hash = hash(p, self.chunk_size,self.algorithm,log=self.log,sfv=self.sfv)
             except (IOError, OSError) as e:
                 warnings.append(p)
                 printAndOrLog('\nWarning: Cannot compute hash of {} [{}]'.format(
@@ -620,7 +620,7 @@ class Bitrot(object):
                 errors.append(p)
                 emails.append([])
                 emails.append([])
-                emails[FIMErrorCounter].append(self.hashing_function)
+                emails[FIMErrorCounter].append(self.algorithm)
                 emails[FIMErrorCounter].append(p.decode(FSENCODING))
                 emails[FIMErrorCounter].append(stored_hash)
                 emails[FIMErrorCounter].append(new_hash)
@@ -630,7 +630,7 @@ class Bitrot(object):
                         '\n\nError: {} mismatch for {}\nExpected: {}\nGot:      {}'
                         '\nLast good hash checked on {}'.format(
                         #p, stored_hash, new_hash, stored_ts
-                        self.hashing_function,p.decode(FSENCODING), stored_hash, new_hash, stored_ts),self.log)   
+                        self.algorithm,p.decode(FSENCODING), stored_hash, new_hash, stored_ts),self.log)   
                 FIMErrorCounter += 1    
 
         if (self.email):
@@ -1005,7 +1005,7 @@ def run_from_command_line():
              'symbolic links registered during the first run will be '
              'properly followed and checked even if you run without \'-l\'.')
     parser.add_argument(
-        '-s', '--sum', action='store_true',
+        '--sum', action='store_true',
         help='using only the data already gathered, return a SHA-512 sum '
              'of hashes of all the entries in the database. No timestamps '
              'are used in calculation.')
@@ -1033,8 +1033,8 @@ def run_from_command_line():
         'Level 1: Just test against an existing database, don\'t update anything.\n.'
         'Level 2: Doesnt compare dates, only hashes. No timestamps are used in the calculation.')
     parser.add_argument(
-        '-a', '--hashing-function', default='',
-        help='Specifies the hashing function to use.')
+        '-a', '--algorithm', default='',
+        help='Specifies the hashing algorithm to use.')
     parser.add_argument(
         '-r','--recent', default=0,
         help='Only deal with files < X days old.')
@@ -1070,7 +1070,7 @@ def run_from_command_line():
         '-g', '--log', default=1,
         help='logs activity')
     parser.add_argument(
-        '-c', '--sfv', default='',
+        '--sfv', default='',
         help='Also generates an MD5 or SFV file when given either of these as a parameter')
     parser.add_argument(
         '-f', '--fix', default=0,
@@ -1081,6 +1081,12 @@ def run_from_command_line():
         'Level 4: Fixes files by removing invalid characters. NOT RECOMMENDED.\n'
         'Level 5: Will report files that have missing access and modification timestamps and invalid characters.\n'
         'Level 6: Fixes files by removing invalid characters and adding missing access and modification times. NOT RECOMMENDED.')
+    parser.add_argument(
+        '-s', '--source', default='',
+        help="Root of source folder. Default is current directory.")
+    parser.add_argument(
+        '-d', '--destination', default='',
+        help="Root of destination folder. Default is current directory.")
 
     args = parser.parse_args()
     if args.sum:
@@ -1157,27 +1163,27 @@ def run_from_command_line():
         else:
             exclude_list = []
 
-        if (args.hashing_function):
+        if (args.algorithm):
             #combined = '\t'.join(hashlib.algorithms_available)
-            #if (args.hashing_function in combined):
+            #if (args.algorithm in combined):
 
-            #word_to_check = args.hashing_function
+            #word_to_check = args.algorithm
             #wordlist = hashlib.algorithms_available
             #result = any(word_to_check in word for word in wordlist)
 
             #algorithms_available = hashlib.algorithms_available
-            #search = args.hashing_function
+            #search = args.algorithm
             #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
-            if (isValidHashingFunction(stringToValidate=args.hashing_function) == True):
-                hashing_function = args.hashing_function.upper()
+            if (isValidHashingFunction(stringToValidate=args.algorithm) == True):
+                algorithm = args.algorithm.upper()
                 if (verbosity):
-                    printAndOrLog('Using {} for hashing function.'.format(hashing_function),args.log)
+                    printAndOrLog('Using {} for hashing function.'.format(algorithm),args.log)
             else:
                 if (verbosity):
-                    printAndOrLog("Invalid hashing function specified: {}. Using default {}.".format(args.hashing_function,DEFAULT_HASH_FUNCTION),args.log)
-                hashing_function = DEFAULT_HASH_FUNCTION
+                    printAndOrLog("Invalid hashing function specified: {}. Using default {}.".format(args.algorithm,DEFAULT_HASH_FUNCTION),args.log)
+                algorithm = DEFAULT_HASH_FUNCTION
         else:
-            hashing_function = DEFAULT_HASH_FUNCTION
+            algorithm = DEFAULT_HASH_FUNCTION
         sfv_path = get_path(ext=b'sfv')
         md5_path = get_path(ext=b'md5')
         try:
@@ -1274,7 +1280,7 @@ def run_from_command_line():
 
         bt = Bitrot(
             verbosity = verbosity,
-            hashing_function = hashing_function,
+            algorithm = algorithm,
             test = test,
             recent = recent,
             email = args.email,
