@@ -1121,6 +1121,14 @@ def run_from_command_line():
                 writeToLog('Log started at ')
                 writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         include_list = []
+        if args.source == '-':
+            if verbosity:
+                printAndOrLog('Using current directory for file list',args.log) 
+            source = "."
+        else:
+            if verbosity:
+                printAndOrLog('Source directory \'{}\''.format(args.source),args.log)
+
         if args.include_list == '-':
             if verbosity:
                 printAndOrLog('Using stdin for file list',args.log) 
