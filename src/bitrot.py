@@ -395,7 +395,6 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                 include_this = [fnmatch(file.encode(FSENCODING), wildcard) 
                                 for file in p.split(os.path.sep)
                                 for wildcard in included]                
-
                 if not stat.S_ISREG(st.st_mode) or any(exclude_this) or any([fnmatch(p.encode(FSENCODING), exc) for exc in ignored]) or (included and not any([fnmatch(p.encode(FSENCODING), exc) for exc in included]) and not any(include_this)):
                 #if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
                     ignoredList.append(p.encode(FSENCODING))
