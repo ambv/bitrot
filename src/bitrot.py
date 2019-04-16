@@ -54,23 +54,28 @@ VERSION = (0, 9, 3)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
 DEFAULT_HASH_FUNCTION = "SHA512"
+SOURCE_DIR='.'
+DESTINATION_DIR='.'
 
 if sys.version[0] == '2':
     str = type(u'text')
     # use \'bytes\' for bytestrings
 
-def printAndOrLog(stringToProcess,log):
+def printAndOrLog(stringToProcess,log=True):
     print(stringToProcess)
     if (log):
         writeToLog('\n')
         writeToLog(stringToProcess)
 
 def writeToLog(stringToWrite=""):
-    log_path = get_path(ext=b'log')
+    log_path = get_path(SOURCE_DIR,ext=b'log')
     stringToWrite = cleanString(stringToWrite)
-    with open(log_path, 'a') as logFile:
-        logFile.write(stringToWrite)
-        logFile.close()
+    try:
+        with open(log_path, 'a') as logFile:
+            logFile.write(stringToWrite)
+            logFile.close()
+    except Exception as err:
+        print("Could not open log: \'{}\'. Received error: {}".format(log_path, err))
 
 def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
@@ -91,17 +96,20 @@ def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
         server.sendmail(FROMADDR, TOADDR, msg.as_string())
         server.quit()
     except Exception as err:
-        printAndOrLog('\nEmail sending error: {}'.format(err),log)
+        printAndOrLog('\nEmail sending error: {}'.format(err))
 
 
 def writeToSFV(stringToWrite="", sfv=""):
     if (sfv == "MD5"):
-        sfv_path = get_path(ext=b'md5')
+        sfv_path = get_path(SOURCE_DIR,ext=b'md5')
     elif (sfv == "SFV"):
-        sfv_path = get_path(ext=b'sfv')
-    with open(sfv_path, 'a') as sfvFile:
-        sfvFile.write(stringToWrite)
-        sfvFile.close()
+        sfv_path = get_path(SOURCE_DIR,ext=b'sfv')
+    try:
+        with open(sfv_path, 'a') as sfvFile:
+            sfvFile.write(stringToWrite)
+            sfvFile.close()
+    except Exception as err:
+        print("Could not open checksum file: \'{}\'. Received error: {}".format(sfv_path, err))
 
 def hash(path, chunk_size,algorithm="",log=1,sfv=""):
     if (algorithm == "MD5"):
@@ -120,12 +128,14 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
         #You should never get here
         printAndOrLog('Invalid hash function detected.',log)
         raise Exception('Invalid hash function detected.')
-
-    with open(path, 'rb') as f:
-        d = f.read(chunk_size)
-        while d:
-            digest.update(d)
+    try:
+        with open(path, 'rb') as f:
             d = f.read(chunk_size)
+            while d:
+                digest.update(d)
+                d = f.read(chunk_size)
+    except Exception as err:
+        printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
 
     if (sfv != ""):
         strippedPathString = str(pathStripper(path,sfv))
@@ -134,28 +144,34 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
             writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,strippedPathString),sfv=sfv) 
         elif (sfv == "MD5"):
             sfvDigest = hashlib.md5()
-            with open(path, 'rb') as f2:
-                d2 = f2.read(chunk_size)
-                while d2:
-                    sfvDigest.update(d2)
+            try:
+                with open(path, 'rb') as f2:
                     d2 = f2.read(chunk_size)
+                    while d2:
+                        sfvDigest.update(d2)
+                        d2 = f2.read(chunk_size)
+            except Exception as err:
+                printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
             writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv) 
         elif (sfv == "SFV"):
-            with open(path, 'rb') as f2:
-                d2 = f2.read(chunk_size)
-                crcvalue = 0
-                while d2:
-                    #zlib is faster
-                    #import timeit
-                    #print("b:", timeit.timeit("binascii.crc32(data)", setup="import binascii, zlib; data=b'X'*4096", number=100000))
-                    #print("z:", timeit.timeit("zlib.crc32(data)",     setup="import binascii, zlib; data=b'X'*4096", number=100000))
-                    #Result:
-                    #b: 1.0176826480001182
-                    #z: 0.4006126120002591
-                    
-                    crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
-                    #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
+            try:
+                with open(path, 'rb') as f2:
                     d2 = f2.read(chunk_size)
+                    crcvalue = 0
+                    while d2:
+                        #zlib is faster
+                        #import timeit
+                        #print("b:", timeit.timeit("binascii.crc32(data)", setup="import binascii, zlib; data=b'X'*4096", number=100000))
+                        #print("z:", timeit.timeit("zlib.crc32(data)",     setup="import binascii, zlib; data=b'X'*4096", number=100000))
+                        #Result:
+                        #b: 1.0176826480001182
+                        #z: 0.4006126120002591
+                        
+                        crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
+                        #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
+                        d2 = f2.read(chunk_size)
+            except Exception as err:
+                printAndOrLog("Could not open SFV file: \'{}\'. Received error: {}".format(path, err),log)
             writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
 
 
@@ -247,11 +263,14 @@ def get_sqlite3_cursor(path, copy=False):
                     "".format(path),log)
         db_copy = tempfile.NamedTemporaryFile(prefix='bitrot_', suffix='.db',
                                               delete=False)
-        with open(path, 'rb') as db_orig:
-            try:
-                shutil.copyfileobj(db_orig, db_copy)
-            finally:
-                db_copy.close()
+        try:
+            with open(path, 'rb') as db_orig:
+                try:
+                    shutil.copyfileobj(db_orig, db_copy)
+                finally:
+                    db_copy.close()
+        except Exception as err:
+            printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(path, err),log)
         path = db_copy.name
         atexit.register(os.unlink, path)
     conn = sqlite3.connect(path)
@@ -267,7 +286,7 @@ def get_sqlite3_cursor(path, copy=False):
     return conn
 
 
-def fix_existing_paths(directory, verbosity = 1, log=1, fix=5, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
+def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
 #   Use os.getcwd() instead of "." since it doesn't seem to be resolved the way you want. This will be illustrated in the diagnostics function.
 #   Use relative path renaming by os.chdir(root). Of course using correct absolute paths also works, but IMHO relative paths are just more elegant.
 #   Pass an unambiguous string into os.walk() as others have mentioned.
@@ -422,11 +441,11 @@ class Bitrot(object):
     def run(self):
         check_sha512_integrity(verbosity=self.verbosity, log=self.log)
 
-        bitrot_sha512 = get_path(ext=b'sha512')
-        bitrot_log = get_path(ext=b'log')
-        bitrot_db = get_path()
-        bitrot_sfv = get_path(ext=b'sfv')
-        bitrot_md5 = get_path(ext=b'md5')
+        bitrot_sha512 = get_path(SOURCE_DIR,ext=b'sha512')
+        bitrot_log = get_path(SOURCE_DIR,ext=b'log')
+        bitrot_db = get_path(SOURCE_DIR,'db')
+        bitrot_sfv = get_path(SOURCE_DIR,ext=b'sfv')
+        bitrot_md5 = get_path(SOURCE_DIR,ext=b'md5')
 
         #bitrot_db = os.path.basename(get_path())
         #bitrot_sha512 = os.path.basename(get_path(ext=b'sha512'))
@@ -473,7 +492,7 @@ class Bitrot(object):
         print("Loading file list... Please wait...")
 
         paths, total_size, ignoredList = list_existing_paths(
-            b'.', 
+            SOURCE_DIR, 
             expected=missing_paths, 
             ignored=[bitrot_db, bitrot_sha512,bitrot_log,bitrot_sfv,bitrot_md5] + self.exclude_list,
             included=self.include_list,
@@ -893,6 +912,9 @@ class Bitrot(object):
 
 def get_path(directory=b'.', ext=b'db'):
     """Compose the path to the selected bitrot file."""
+    directory = os.fsencode(directory)
+    ext = os.fsencode(ext)
+    #print("directory: {}.bitrot{}".format(directory,ext))
     return os.path.join(directory, b'.bitrot.' + ext)
 
 def stable_sum(bitrot_db=None):
@@ -901,7 +923,7 @@ def stable_sum(bitrot_db=None):
     Useful for comparing if two directories hold the same data, as it ignores
     timing information."""
     if bitrot_db is None:
-        bitrot_db = get_path()
+        bitrot_db = get_path(SOURCE_DIR,'db')
     digest = hashlib.sha512()
     conn = get_sqlite3_cursor(bitrot_db)
     cur = conn.cursor()
@@ -913,23 +935,29 @@ def stable_sum(bitrot_db=None):
     return digest.hexdigest()
 
 def check_sha512_integrity(verbosity=1, log=1):
-    sha512_path = get_path(ext=b'sha512')
+    sha512_path = get_path(SOURCE_DIR,ext=b'sha512')
     if not os.path.exists(sha512_path):
         return
 
-    bitrot_db = get_path()
+    bitrot_db = get_path(SOURCE_DIR,'db')
     if not os.path.exists(bitrot_db):
         return
 
     if verbosity:
         printAndOrLog('Checking bitrot.db integrity... ',log)
         sys.stdout.flush()
-    with open(sha512_path, 'rb') as f:
-        old_sha512 = f.read().strip()
+    try:
+        with open(sha512_path, 'rb') as f:
+            old_sha512 = f.read().strip()
+    except Exception as err:
+        printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, err),log)
     
     digest = hashlib.sha512()
-    with open(bitrot_db, 'rb') as f:
-        digest.update(f.read())
+    try:
+        with open(bitrot_db, 'rb') as f:
+            digest.update(f.read())
+    except Exception as err:
+        printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(bitrot_db, err),log)
     new_sha512 = digest.hexdigest().encode('ascii')
     if new_sha512 != old_sha512:
         if len(old_sha512) == 128:
@@ -952,22 +980,32 @@ def check_sha512_integrity(verbosity=1, log=1):
 
 def update_sha512_integrity(verbosity=1, log=1):
     old_sha512 = 0
-    sha512_path = get_path(ext=b'sha512')
+    sha512_path = get_path(SOURCE_DIR,ext=b'sha512')
 
     if os.path.exists(sha512_path):
-        with open(sha512_path, 'rb') as f:
-            old_sha512 = f.read().strip()
-    bitrot_db = get_path()
+        try:
+            with open(sha512_path, 'rb') as f:
+                old_sha512 = f.read().strip()
+        except Exception as err:
+            printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, err),log)
+
+    bitrot_db = get_path(SOURCE_DIR,'db')
     digest = hashlib.sha512()
-    with open(bitrot_db, 'rb') as f:
-        digest.update(f.read())
+    try:
+        with open(bitrot_db, 'rb') as f:
+            digest.update(f.read())
+    except Exception as err:
+        printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, err),log)
     new_sha512 = digest.hexdigest().encode('ascii')
     if new_sha512 != old_sha512:
         if verbosity:
             printAndOrLog('Updating bitrot.sha512... ',log)
             sys.stdout.flush()
-        with open(sha512_path, 'wb') as f:
-            f.write(new_sha512)
+        try:
+            with open(sha512_path, 'wb') as f:
+                f.write(new_sha512)
+        except Exception as err:
+            printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, err),log)
         if verbosity:
             printAndOrLog('done.',log)
 
@@ -995,6 +1033,7 @@ def recordTimeElapsed(startTime=0, log=1):
 
 def run_from_command_line():
     global FSENCODING
+    global SOURCE_DIR
     parser = argparse.ArgumentParser(prog='bitrot')
     parser.add_argument(
         '-l', '--follow-links', action='store_true',
@@ -1112,23 +1151,25 @@ def run_from_command_line():
                 printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
                 verbosity = 1
                 pass
-
+        try:
+            if args.source == '-':
+                if verbosity:
+                    printAndOrLog('Using current directory for file list',args.log)
+            else:
+                SOURCE_DIR = args.source
+                if verbosity:
+                    printAndOrLog('Source directory \'{}\''.format(args.source),args.log)
+        except Exception as err:
+                SOURCE_DIR = '.'
+                printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.include_list, err),args.log) 
         if (args.log):
-            log_path = get_path(ext=b'log')
+            log_path = get_path(SOURCE_DIR,ext=b'log')
             if (verbosity):
                 if os.path.exists(log_path):
                     writeToLog('\n======================================================\n')
                 writeToLog('Log started at ')
                 writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         include_list = []
-        if args.source == '-':
-            if verbosity:
-                printAndOrLog('Using current directory for file list',args.log) 
-            source = "."
-        else:
-            if verbosity:
-                printAndOrLog('Source directory \'{}\''.format(args.source),args.log)
-
         if args.include_list == '-':
             if verbosity:
                 printAndOrLog('Using stdin for file list',args.log) 
@@ -1146,8 +1187,7 @@ def run_from_command_line():
                         includeFile.close() # should be harmless if include_list == sys.stdin
 
             except Exception as err:
-                if (verbosity):
-                    printAndOrLog("Invalid inclusion list specified: \'{}\'. Not using an inclusion list. Received error: {}".format(args.include_list, err),args.log)
+                printAndOrLog("Invalid inclusion list specified: \'{}\'. Not using an inclusion list. Received error: {}".format(args.include_list, err),args.log)
                 include_list = []
         else:
             include_list = []
@@ -1164,9 +1204,7 @@ def run_from_command_line():
                     if excludeFile:
                         excludeFile.close() # should be harmless if include_list == sys.stdin
             except Exception as err:
-                if (verbosity):
-                    print("Invalid exclusion list specified: \'{}\'. Not using an exclusion list. Received error: {}".format(args.exclude_list, err))
-                    printAndOrLog("Invalid exclusion list specified: \'{}\'. Not using an exclusion list. Received error: {}".format(args.exclude_list, err),args.log)
+                printAndOrLog("Invalid exclusion list specified: \'{}\'. Not using an exclusion list. Received error: {}".format(args.exclude_list, err),args.log)
                 exclude_list = []
         else:
             exclude_list = []
@@ -1192,8 +1230,8 @@ def run_from_command_line():
                 algorithm = DEFAULT_HASH_FUNCTION
         else:
             algorithm = DEFAULT_HASH_FUNCTION
-        sfv_path = get_path(ext=b'sfv')
-        md5_path = get_path(ext=b'md5')
+        sfv_path = get_path(SOURCE_DIR,ext=b'sfv')
+        md5_path = get_path(SOURCE_DIR,ext=b'md5')
         try:
             os.remove(sfv_path)
         except Exception as err:
@@ -1229,8 +1267,7 @@ def run_from_command_line():
                         printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
                         test = 0
             except Exception as err:
-                if (verbosity):
-                    printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
+                printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
                 test = 0
                 pass
 
@@ -1246,8 +1283,7 @@ def run_from_command_line():
                         printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
                     recent = 0
             except Exception as err:
-                if (verbosity):
-                    printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
+                printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
                 recent = 0
                 pass       
 
@@ -1281,8 +1317,7 @@ def run_from_command_line():
                         printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
                         fix = 5
             except Exception as err:
-                if (verbosity):
-                    printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
+                printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
                 fix = 5
                 pass
 
