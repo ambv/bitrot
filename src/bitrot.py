@@ -275,7 +275,7 @@ def get_sqlite3_cursor(path, copy=False):
         path = db_copy.name
         atexit.register(os.unlink, path)
     try:
-    	conn = sqlite3.connect(path)
+        conn = sqlite3.connect(path)
     except Exception as err:
            printAndOrLog("Could not connect to database: \'{}\'. Received error: {}".format(path, err))
            raise
@@ -483,11 +483,14 @@ class Bitrot(object):
                 
         missing_paths = self.select_all_paths(cur)
 
+        destinationDirectory = SOURCE_DIR;
+        if (SOURCE_DIR != DESTINATION_DIR):
+            destinationDirectory = DESTINATION_DIR
 
         if (self.fix >= 1):
             fixedRenameList, fixedRenameCounter = fix_existing_paths(
             #os.getcwd(),# pass an unambiguous string instead of: b'.'  
-            SOURCE_DIR,
+            destinationDirectory,
             verbosity=self.verbosity,
             log=self.log,
             fix=self.fix,
@@ -499,7 +502,7 @@ class Bitrot(object):
         print("Loading file list... Please wait...")
 
         paths, total_size, ignoredList = list_existing_paths(
-            SOURCE_DIR,
+            destinationDirectory,
             expected=missing_paths, 
             ignored=[bitrot_db, bitrot_sha512,bitrot_log,bitrot_sfv,bitrot_md5] + self.exclude_list,
             included=self.include_list,
@@ -680,6 +683,7 @@ class Bitrot(object):
                 all_count,
                 len(errors),
                 len(warnings),
+                paths,
                 new_paths,
                 updated_paths,
                 renamed_paths,
@@ -755,7 +759,7 @@ class Bitrot(object):
         self._last_reported_size = size_fmt
 
     def report_done(
-        self, total_size, all_count, error_count, warning_count, new_paths, updated_paths,
+        self, total_size, all_count, error_count, warning_count, paths, new_paths, updated_paths,
         renamed_paths, missing_paths, tooOldList, ignoredList, fixedRenameList, fixedRenameCounter,
         fixedPropertiesList, fixedPropertiesCounter, log):
 
@@ -784,6 +788,17 @@ class Bitrot(object):
                     '{} renamed, {} missing, {} skipped, {} fixed.'.format(
                         all_count, len(new_paths), len(updated_paths),
                         len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed),log)
+
+        if self.verbosity >= 5:
+            if (len(paths) == 1):
+                printAndOrLog('\n1 existing entry:',log)
+            else:
+                printAndOrLog('\n{} existing entries:'.format(len(paths)),log)
+
+            paths.sort()
+            for path in paths:
+                printAndOrLog(' {}'.format(path.encode(FSENCODING)),log)
+
 
         if self.verbosity >= 4:
             if (ignoredList):
@@ -959,12 +974,12 @@ def check_sha512_integrity(verbosity=1, log=1):
     if new_sha512 != old_sha512:
         if len(old_sha512) == 128:
             printAndOrLog(
-                "\nError: SHA512 of the database file is different, bitrot.db might "
-                "be corrupt.",log)
+                "\nError: SHA512 of the database file \'{}\' is different, bitrot.db might "
+                "be corrupt.".format(bitrot_db),log)
         else:
             printAndOrLog(
-                "\nError: SHA512 of the database file is different, but bitrot.sha512 "
-                "has a suspicious length. It might be corrupt.",log)
+                "\nError: SHA512 of the database file \'{}\' is different, but bitrot.sha512 "
+                "has a suspicious length. It might be corrupt.".format(bitrot_db),log)
         printAndOrLog("If you'd like to continue anyway, delete the .bitrot.sha512 file and try again.",log)
         printAndOrLog("bitrot.db integrity check failed, cannot continue.",log)
 
@@ -1031,6 +1046,7 @@ def recordTimeElapsed(startTime=0, log=1):
 def run_from_command_line():
     global FSENCODING
     global SOURCE_DIR
+    global DESTINATION_DIR
     parser = argparse.ArgumentParser(prog='bitrot')
     parser.add_argument(
         '-l', '--follow-links', action='store_true',
@@ -1067,7 +1083,8 @@ def run_from_command_line():
         '-t', '--test', default=0,
         help='Level 0: normal operations.\n'
         'Level 1: Just test against an existing database, don\'t update anything.\n.'
-        'Level 2: Doesnt compare dates, only hashes. No timestamps are used in the calculation.')
+        'Level 2: Doesnt compare dates, only hashes. No timestamps are used in the calculation.\n'
+        'You can compare to another directory using --destination.')
     parser.add_argument(
         '-a', '--algorithm', default='',
         help='Specifies the hashing algorithm to use.')
@@ -1098,7 +1115,8 @@ def run_from_command_line():
         'Level 1: Normal amount of verbosity.\n'
         'Level 2: List missing, and fixed entries.\n'
         'Level 3: List missing, fixed, new, renamed, and updated entries.\n'
-        'Level 4: List missing, fixed, new, renamed, and updated entries, and ignored files.')
+        'Level 4: List missing, fixed, new, renamed, updated entries, and ignored files.\n'
+        'Level 5: List missing, fixed, new, renamed, updated entries, ignored files, and existing files\n.')
     parser.add_argument(
         '-e', '--email', default=1,
         help='email file integrity errors')
@@ -1134,7 +1152,9 @@ def run_from_command_line():
             elif (verbosity == 3):
                 printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries.".format(args.verbose),args.log)
             elif (verbosity == 4):
-                printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose),args.log)
+                printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, updated entries, and ignored files.".format(args.verbose),args.log)
+            elif (verbosity == 5):
+                printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, updated entries, ignored files, and existing files.".format(args.verbose),args.log)
             elif not (verbosity == 0) and not (verbosity == 1):
                 printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
                 verbosity = 1
