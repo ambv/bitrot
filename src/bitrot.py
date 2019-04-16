@@ -271,9 +271,14 @@ def get_sqlite3_cursor(path, copy=False):
                     db_copy.close()
         except Exception as err:
             printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(path, err),log)
+            raise
         path = db_copy.name
         atexit.register(os.unlink, path)
-    conn = sqlite3.connect(path)
+    try:
+    	conn = sqlite3.connect(path)
+    except Exception as err:
+           printAndOrLog("Could not connect to database: \'{}\'. Received error: {}".format(path, err))
+           raise
     atexit.register(conn.close)
     cur = conn.cursor()
     tables = set(t for t, in cur.execute('SELECT name FROM sqlite_master'))
@@ -780,16 +785,6 @@ class Bitrot(object):
                         all_count, len(new_paths), len(updated_paths),
                         len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed),log)
 
-        # if self.verbosity >= 2:
-        #     if (all_count == 1):
-        #         print('1 entry in the database.')
-        #         if (log):
-        #             writeToLog('1 entry in the database.')
-        #     else:
-        #         print('{} entries in the database.'.format(all_count), end=' ')
-        #         if (log):
-        #             writeToLog('\n{} entries in the database.'.format(all_count))
-
         if self.verbosity >= 4:
             if (ignoredList):
                 if (len(ignoredList) == 1):
@@ -820,7 +815,7 @@ class Bitrot(object):
 
                 new_paths.sort()
                 for path in new_paths:
-                    printAndOrLog(' {}'.format(path.decode(FSENCODING)),log)
+                    printAndOrLog(' {}'.format(path.encode(FSENCODING)),log)
 
             if updated_paths:
                 if (len(updated_paths) == 1):
@@ -830,7 +825,7 @@ class Bitrot(object):
 
                 updated_paths.sort()
                 for path in updated_paths:
-                    printAndOrLog(' {}'.format(path.decode(FSENCODING)),log)
+                    printAndOrLog(' {}'.format(path.encode(FSENCODING)),log)
 
             if renamed_paths:
                 if (len(renamed_paths) == 1):
@@ -1130,47 +1125,62 @@ def run_from_command_line():
         help="Root of destination folder. Default is current directory.")
 
     args = parser.parse_args()
+    verbosity = 1
+    if (args.verbose):
+        try:
+            verbosity = int(args.verbose)
+            if (verbosity == 2):
+                printAndOrLog("Verbosity option selected: {}. List missing, and fixed entries.".format(args.verbose),args.log)
+            elif (verbosity == 3):
+                printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries.".format(args.verbose),args.log)
+            elif (verbosity == 4):
+                printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose),args.log)
+            elif not (verbosity == 0) and not (verbosity == 1):
+                printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
+                verbosity = 1
+        except Exception as err:
+            printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
+            verbosity = 1
+            pass
+
+    try:
+        if args.source == '-':
+            if verbosity:
+                printAndOrLog('Using current directory for file list',args.log)
+        else:
+            SOURCE_DIR = args.source
+            if verbosity:
+                printAndOrLog('Source directory \'{}\''.format(args.source),args.log)
+    except Exception as err:
+            SOURCE_DIR = '.'
+            printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log) 
+    
+    try:
+        if args.destination == '-':
+            if verbosity:
+                printAndOrLog('Using current directory for file list',args.log)
+        else:
+            DESTINATION_DIR = args.destination
+            if verbosity:
+                printAndOrLog('Destination directory \'{}\''.format(args.destination),args.log)
+    except Exception as err:
+            DESTINATION_DIR = '.'
+            printAndOrLog("Invalid Destination directory: \'{}\'. Using current directory. Received error: {}".format(args.destination, err),args.log) 
+
+    if (args.log):
+        log_path = get_path(SOURCE_DIR,ext=b'log')
+        if (verbosity):
+            if os.path.exists(log_path):
+                writeToLog('\n======================================================\n')
+            writeToLog('Log started at ')
+            writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+
     if args.sum:
         try:
             print(stable_sum())
         except RuntimeError as e:
             print(str(e).encode(FSENCODING), file=sys.stderr)
     else:
-        verbosity = 1
-        if args.verbose:
-            try:
-                verbosity = int(args.verbose)
-                if (verbosity == 2):
-                    printAndOrLog("Verbosity option selected: {}. List missing, and fixed entries.".format(args.verbose),args.log)
-                elif (verbosity == 3):
-                    printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries.".format(args.verbose),args.log)
-                elif (verbosity == 4):
-                    printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries, and ignored files.".format(args.verbose),args.log)
-                elif not (verbosity == 0) and not (verbosity == 1):
-                    printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
-                    verbosity = 1
-            except Exception as err:
-                printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
-                verbosity = 1
-                pass
-        try:
-            if args.source == '-':
-                if verbosity:
-                    printAndOrLog('Using current directory for file list',args.log)
-            else:
-                SOURCE_DIR = args.source
-                if verbosity:
-                    printAndOrLog('Source directory \'{}\''.format(args.source),args.log)
-        except Exception as err:
-                SOURCE_DIR = '.'
-                printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log) 
-        if (args.log):
-            log_path = get_path(SOURCE_DIR,ext=b'log')
-            if (verbosity):
-                if os.path.exists(log_path):
-                    writeToLog('\n======================================================\n')
-                writeToLog('Log started at ')
-                writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         include_list = []
         if args.include_list == '-':
             if verbosity:
