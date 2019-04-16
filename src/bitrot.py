@@ -1163,7 +1163,7 @@ def run_from_command_line():
                     printAndOrLog('Source directory \'{}\''.format(args.source),args.log)
         except Exception as err:
                 SOURCE_DIR = '.'
-                printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.include_list, err),args.log) 
+                printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log) 
         if (args.log):
             log_path = get_path(SOURCE_DIR,ext=b'log')
             if (verbosity):
