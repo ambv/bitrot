@@ -259,7 +259,7 @@ def get_sqlite3_cursor(path, copy=False):
         if not os.path.exists(path):
             raise ValueError("Error: bitrot database at {} does not exist."
                              "".format(path))
-            printAndOrLog("\nError: bitrot database at {} does not exist."
+            printAndOrLog("Error: bitrot database at {} does not exist."
                     "".format(path),log)
         db_copy = tempfile.NamedTemporaryFile(prefix='bitrot_', suffix='.db',
                                               delete=False)
@@ -342,7 +342,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                     fixedRenameCounter += 1
     return fixedRenameList, fixedRenameCounter
 
-def list_existing_paths(directory, expected=(), ignored=(), included=(), 
+def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=(), 
                         verbosity=1, follow_links=False, log=1, fix=0, warnings = ()):
     """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
 
@@ -360,14 +360,15 @@ def list_existing_paths(directory, expected=(), ignored=(), included=(),
         for f in files:
             p = os.path.join(path, f)
             try:
-                p_uni = p.decode(FSENCODING)
+                #p_uni = p.decode(FSENCODING)
+                p_uni = p.encode(FSENCODING)
             except UnicodeDecodeError:
                 binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
                 warnings.append(p)
                 binary_stderr.write(b"\rWarning: cannot decode file name: ")
                 binary_stderr.write(p)
                 binary_stderr.write(b"\n")
-                printAndOrLog("\nWarning: cannot decode file name: {}".format(p),log)
+                printAndOrLog("Warning: cannot decode file name: {}".format(p),log)
                 continue
 
             try:
@@ -384,15 +385,15 @@ def list_existing_paths(directory, expected=(), ignored=(), included=(),
                 # and match on any of these components
                 # so we could use 'dir*', '*2', '*.txt', etc. to exclude anything
                 exclude_this = [fnmatch(file.encode(FSENCODING), wildcard) 
-                                for file in p.decode(FSENCODING).split(os.path.sep)
+                                for file in p.split(os.path.sep)
                                 for wildcard in ignored]
                 include_this = [fnmatch(file.encode(FSENCODING), wildcard) 
-                                for file in p.decode(FSENCODING).split(os.path.sep)
+                                for file in p.split(os.path.sep)
                                 for wildcard in included]                
 
-                if not stat.S_ISREG(st.st_mode) or any(exclude_this) or any([fnmatch(p, exc) for exc in ignored]) or (included and not any([fnmatch(p, exc) for exc in included]) and not any(include_this)):
+                if not stat.S_ISREG(st.st_mode) or any(exclude_this) or any([fnmatch(p.encode(FSENCODING), exc) for exc in ignored]) or (included and not any([fnmatch(p.encode(FSENCODING), exc) for exc in included]) and not any(include_this)):
                 #if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
-                    ignoredList.append(p.decode(FSENCODING))
+                    ignoredList.append(p.encode(FSENCODING))
                     #if verbosity > 2:
                         #print('Ignoring file: {}'.format(p))
                         #print('Ignoring file: {}'.format(p.decode(FSENCODING)))
@@ -459,7 +460,7 @@ class Bitrot(object):
                 'No database exists so cannot test. Run the tool once first.',
             )
             if (log):
-                printAndOrLog("\nNo database exists so cannot test. Run the tool once first.",self.log)
+                printAndOrLog("No database exists so cannot test. Run the tool once first.",self.log)
 
         cur = conn.cursor()
         new_paths = []
@@ -480,7 +481,8 @@ class Bitrot(object):
 
         if (self.fix >= 1):
             fixedRenameList, fixedRenameCounter = fix_existing_paths(
-            os.getcwd(),# pass an unambiguous string instead of: b'.'  
+            #os.getcwd(),# pass an unambiguous string instead of: b'.'  
+            SOURCE_DIR,
             verbosity=self.verbosity,
             log=self.log,
             fix=self.fix,
@@ -492,7 +494,7 @@ class Bitrot(object):
         print("Loading file list... Please wait...")
 
         paths, total_size, ignoredList = list_existing_paths(
-            SOURCE_DIR, 
+            SOURCE_DIR,
             expected=missing_paths, 
             ignored=[bitrot_db, bitrot_sha512,bitrot_log,bitrot_sfv,bitrot_md5] + self.exclude_list,
             included=self.include_list,
@@ -506,7 +508,7 @@ class Bitrot(object):
         print("Hashing files... Please wait...")
         FIMErrorCounter = 0;
         for p in paths:
-            p_uni = p.decode(FSENCODING)
+            p_uni = p.encode(FSENCODING)
             try:
                 st = os.stat(p)
             except OSError as ex:
@@ -732,7 +734,7 @@ class Bitrot(object):
         max_path_size = cols - len(size_fmt) - 1
 
         #without this line, weird character in the filename could cause strange printing output
-        current_path = cleanString(stringToClean=current_path)
+        current_path = cleanString(stringToClean=current_path.decode(FSENCODING))
 
         if len(current_path) > max_path_size:
             # show first half and last half, separated by ellipsis
@@ -791,21 +793,21 @@ class Bitrot(object):
         if self.verbosity >= 4:
             if (ignoredList):
                 if (len(ignoredList) == 1):
-                    printAndOrLog("\n1 files excluded: ",log)
+                    printAndOrLog("1 files excluded: ",log)
                     for row in ignoredList:
-                        printAndOrLog("  \n{}".format(row),log)
+                        printAndOrLog("{}".format(row),log)
                 else:
-                    printAndOrLog("\n{} files excluded: ".format(len(ignoredList)),log)
+                    printAndOrLog("{} files excluded: ".format(len(ignoredList)),log)
                     for row in ignoredList:
-                        printAndOrLog("  \n{}".format(row),log)
+                        printAndOrLog("{}".format(row),log)
 
                 if (tooOldList):
                     if (len(tooOldList) == 1):
-                        printAndOrLog("\n1 non-recent files ignored: ",log)
+                        printAndOrLog("1 non-recent files ignored: ",log)
                         for row in tooOldList:
                             printAndOrLog("  \n{}".format(row),log)
                     else:
-                        printAndOrLog("\n{} non-recent files ignored".format(len(tooOldList)),log)
+                        printAndOrLog("{} non-recent files ignored".format(len(tooOldList)),log)
                         for row in tooOldList:
                             printAndOrLog("  \n{}".format(row),log)
 
