@@ -541,15 +541,14 @@ class Bitrot(object):
             '%(f)s',
             dict(
                 f='',
-            ),
+            )
         )
 
         if self.verbosity:
-            bar = progressbar.ProgressBar(max_value=len(paths),widgets=[
-                progressbar.AdaptiveETA(format_not_started='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s|ETA: --:--:--', format_finished='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s', format='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s|ETA: %(eta)8s', format_zero='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s|ETA: 00:00:00', format_NA='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s|ETA: N/A'),
-                #progressbar.AdaptiveETA(format='[%(value)02d/%(max_value)d]'),
-                progressbar.Bar(marker='#', left='|', right='|', fill=' ', fill_left=False),
-                format_custom_text])
+            bar = progressbar.ProgressBar(max_value=len(paths),widgets=[format_custom_text,
+                progressbar.AdaptiveETA(format_not_started='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s|ETA: --:--:--', format_finished='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s|ETA:%(eta)8s', format_zero='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s|ETA: 00:00:00', format_NA='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s|ETA: N/A'),
+                progressbar.Bar(marker='#', left='|', right='|', fill=' ', fill_left=True),               
+                ])
           
         for p in paths:
             p_uni = p.encode(FSENCODING)
@@ -773,26 +772,21 @@ class Bitrot(object):
             row = cur.fetchone()
         return result
 
-    def progressFormat(self, currentPosition,totalPosition,current_path):
+    def progressFormat(self, currentPosition,totalPosition,current_path):       
+        current_path = cleanString(stringToClean=current_path.decode(FSENCODING))
+        terminal_size = shutil.get_terminal_size()
+        cols = terminal_size.columns
+        max_path_size =  int(shutil.get_terminal_size().columns/2)
+        if len(current_path) > max_path_size:
+            # show first half and last half, separated by ellipsis
+            # e.g. averylongpathnameaveryl...ameaverylongpathname
+            half_mps = (max_path_size - 3) // 2
+            current_path = current_path[:half_mps] + '...' + current_path[-half_mps:]
+        else:
+            # pad out with spaces, otherwise previous filenames won't be erased
+            current_path += ' ' * (max_path_size - len(current_path))
+        current_path = current_path + '|'
         return current_path
-        # size_fmt = '\r{:>6.1%}'.format(currentPosition/(totalPosition or 1))
-        # if size_fmt == self._last_reported_size:
-        #     return
-        # # show current file in progress too
-        # terminal_size = shutil.get_terminal_size()
-        # # but is it too big for terminal window?
-        # cols = terminal_size.columns
-        # max_path_size = cols - len(size_fmt) - 1
-        # current_path = cleanString(stringToClean=current_path.decode(FSENCODING))
-        # if len(current_path) > max_path_size:
-        #     # show first half and last half, separated by ellipsis
-        #     # e.g. averylongpathnameaveryl...ameaverylongpathname
-        #     half_mps = (max_path_size - 3) // 2
-        #     current_path = current_path[:half_mps] + '...' + current_path[-half_mps:]
-        # else:
-        #     # pad out with spaces, otherwise previous filenames won't be erased
-        #     current_path += ' ' * (max_path_size - len(current_path))
-        # return current_path
 
 
         # size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
