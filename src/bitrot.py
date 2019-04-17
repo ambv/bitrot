@@ -302,7 +302,8 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
 #   Also note that topdown=False in os.walk() doesn't matter. Since you are not renaming directories, the directory structure will be invariant during os.walk().
     progressCounter=0
     print("Scanning file and directory names to fix... Please wait...")
-    bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
+    if verbosity:
+        bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for root, dirs, files in os.walk(directory, topdown=False):
         for f in files:
             if (isDirtyString(f)):
@@ -328,8 +329,9 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uni))
                     fixedRenameCounter += 1
-            progressCounter+=1
-            bar.update(progressCounter)
+            if verbosity:
+                progressCounter+=1
+                bar.update(progressCounter)
         for d in dirs:
             if (isDirtyString(d)):
                 try:
@@ -351,7 +353,11 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uni))
                     fixedRenameCounter += 1
-    bar.finish()
+            if verbosity:
+                progressCounter+=1
+                bar.update(progressCounter)
+    if verbosity:
+        bar.finish()
     return fixedRenameList, fixedRenameCounter
 
 def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=(), 
@@ -370,7 +376,8 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
     ignoredList = []
     progressCounter=0
     print("Mapping all files... Please wait...")
-    bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
+    if verbosity:
+        bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for path, _, files in os.walk(directory):
         for f in files:
             p = os.path.join(path, f)
@@ -416,11 +423,13 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                             #writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
                     continue
                 paths.append(p)
-                progressCounter+=1
-                bar.update(progressCounter)
+                if verbosity:
+                    progressCounter+=1
+                    bar.update(progressCounter)
                 total_size += st.st_size
     paths.sort()
-    bar.finish()
+    if verbosity:
+        bar.finish()
     return paths, total_size, ignoredList
 
 class BitrotException(Exception):
@@ -464,6 +473,7 @@ class Bitrot(object):
         bitrot_db = get_path(SOURCE_DIR,'db')
         bitrot_sfv = get_path(SOURCE_DIR,ext=b'sfv')
         bitrot_md5 = get_path(SOURCE_DIR,ext=b'md5')
+        progressCounter=0
 
         #bitrot_db = os.path.basename(get_path())
         #bitrot_sha512 = os.path.basename(get_path(ext=b'sha512'))
@@ -525,6 +535,22 @@ class Bitrot(object):
         )
 
         FIMErrorCounter = 0;
+        print("Hashing all files... Please wait...")
+
+        format_custom_text = progressbar.FormatCustomText(
+            '%(f)s',
+            dict(
+                f='',
+            ),
+        )
+
+        if self.verbosity:
+            bar = progressbar.ProgressBar(max_value=len(paths),widgets=[
+                progressbar.AdaptiveETA(format_not_started='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s|ETA: --:--:--', format_finished='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s', format='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s|ETA: %(eta)8s', format_zero='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s|ETA: 00:00:00', format_NA='%(value)02d/%(max_value)d|Elapsed: %(elapsed)8s|ETA: N/A'),
+                #progressbar.AdaptiveETA(format='[%(value)02d/%(max_value)d]'),
+                progressbar.Bar(marker='#', left='|', right='|', fill=' ', fill_left=False),
+                format_custom_text])
+          
         for p in paths:
             p_uni = p.encode(FSENCODING)
             try:
@@ -536,7 +562,7 @@ class Bitrot(object):
                     # permissions. We'll just skip it for now.
                     warnings.append(p)
                     #writeToLog('\nWarning: \'{}\' is currently unavailable for reading: {}'.format(p_uni, ex))
-                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p.decode(FSENCODING), ex),self.log)
+                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p.encode(FSENCODING), ex),self.log)
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
@@ -558,17 +584,17 @@ class Bitrot(object):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid access and modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)),self.log)
+                    printAndOrLog('Warning: \'{}\' has an invalid access and modification date. Try running with -f to fix.'.format(p.encode(FSENCODING)),self.log)
             elif not (new_mtime):
                 new_mtime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid modification date. Try running with -f to fix.'.format(p.decode(FSENCODING)),self.log)
+                    printAndOrLog('Warning: \'{}\' has an invalid modification date. Try running with -f to fix.'.format(p.encode(FSENCODING)),self.log)
             elif not (new_atime):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid access date. Try running with -f to fix.'.format(p.decode(FSENCODING)),self.log)
+                    printAndOrLog('Warning: \'{}\' has an invalid access date. Try running with -f to fix.'.format(p.encode(FSENCODING)),self.log)
 
             b = datetime.datetime.fromtimestamp(new_mtime)
             c = datetime.datetime.fromtimestamp(new_atime)
@@ -619,7 +645,9 @@ class Bitrot(object):
 
             current_size += st.st_size
             if self.verbosity:
-                self.report_progress(current_size, total_size, p_uni)
+                format_custom_text.update_mapping(f=self.progressFormat(progressCounter,len(paths),p_uni))
+                
+
 
             missing_paths.discard(p_uni)
             try:
@@ -628,7 +656,7 @@ class Bitrot(object):
                 warnings.append(p)
                 printAndOrLog('\nWarning: Cannot compute hash of {} [{}]'.format(
                             #p, errno.errorcode[e.args[0]]))
-                            p.decode(FSENCODING), errno.errorcode[e.args[0]]),self.log)
+                            p.encode(FSENCODING), errno.errorcode[e.args[0]]),self.log)
                 continue
 
             cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
@@ -660,17 +688,21 @@ class Bitrot(object):
                 emails.append([])
                 emails.append([])
                 emails[FIMErrorCounter].append(self.algorithm)
-                emails[FIMErrorCounter].append(p.decode(FSENCODING))
+                emails[FIMErrorCounter].append(p.encode(FSENCODING))
                 emails[FIMErrorCounter].append(stored_hash)
                 emails[FIMErrorCounter].append(new_hash)
                 emails[FIMErrorCounter].append(stored_ts)
-
                 printAndOrLog(
                         '\n\nError: {} mismatch for {}\nExpected: {}\nGot:      {}'
                         '\nLast good hash checked on {}'.format(
                         #p, stored_hash, new_hash, stored_ts
-                        self.algorithm,p.decode(FSENCODING), stored_hash, new_hash, stored_ts),self.log)   
-                FIMErrorCounter += 1    
+                        self.algorithm,p.encode(FSENCODING), stored_hash, new_hash, stored_ts),self.log)   
+                FIMErrorCounter += 1 
+            if self.verbosity:
+                progressCounter+=1
+                bar.update(progressCounter) 
+        if self.verbosity:    
+            bar.finish()
 
         if (self.email):
             if (FIMErrorCounter >= 1):
@@ -741,32 +773,53 @@ class Bitrot(object):
             row = cur.fetchone()
         return result
 
-    def report_progress(self, current_size, total_size, current_path):
-        size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
-        if size_fmt == self._last_reported_size:
-            return
+    def progressFormat(self, currentPosition,totalPosition,current_path):
+        return current_path
+        # size_fmt = '\r{:>6.1%}'.format(currentPosition/(totalPosition or 1))
+        # if size_fmt == self._last_reported_size:
+        #     return
+        # # show current file in progress too
+        # terminal_size = shutil.get_terminal_size()
+        # # but is it too big for terminal window?
+        # cols = terminal_size.columns
+        # max_path_size = cols - len(size_fmt) - 1
+        # current_path = cleanString(stringToClean=current_path.decode(FSENCODING))
+        # if len(current_path) > max_path_size:
+        #     # show first half and last half, separated by ellipsis
+        #     # e.g. averylongpathnameaveryl...ameaverylongpathname
+        #     half_mps = (max_path_size - 3) // 2
+        #     current_path = current_path[:half_mps] + '...' + current_path[-half_mps:]
+        # else:
+        #     # pad out with spaces, otherwise previous filenames won't be erased
+        #     current_path += ' ' * (max_path_size - len(current_path))
+        # return current_path
 
-        # show current file in progress too
-        terminal_size = shutil.get_terminal_size()
-        # but is it too big for terminal window?
-        cols = terminal_size.columns
-        max_path_size = cols - len(size_fmt) - 1
 
-        #without this line, weird character in the filename could cause strange printing output
-        current_path = cleanString(stringToClean=current_path.decode(FSENCODING))
+        # size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
+        # if size_fmt == self._last_reported_size:
+        #     return
 
-        if len(current_path) > max_path_size:
-            # show first half and last half, separated by ellipsis
-            # e.g. averylongpathnameaveryl...ameaverylongpathname
-            half_mps = (max_path_size - 3) // 2
-            current_path = current_path[:half_mps] + '...' + current_path[-half_mps:]
-        else:
-            # pad out with spaces, otherwise previous filenames won't be erased
-            current_path += ' ' * (max_path_size - len(current_path))
+        # # show current file in progress too
+        # terminal_size = shutil.get_terminal_size()
+        # # but is it too big for terminal window?
+        # cols = terminal_size.columns
+        # max_path_size = cols - len(size_fmt) - 1
+
+        # #without this line, weird character in the filename could cause strange printing output
+        # current_path = cleanString(stringToClean=current_path.decode(FSENCODING))
+
+        # if len(current_path) > max_path_size:
+        #     # show first half and last half, separated by ellipsis
+        #     # e.g. averylongpathnameaveryl...ameaverylongpathname
+        #     half_mps = (max_path_size - 3) // 2
+        #     current_path = current_path[:half_mps] + '...' + current_path[-half_mps:]
+        # else:
+        #     # pad out with spaces, otherwise previous filenames won't be erased
+        #     current_path += ' ' * (max_path_size - len(current_path))
             
-        sys.stdout.write(size_fmt + ' ' + current_path)
-        sys.stdout.flush()
-        self._last_reported_size = size_fmt
+        # sys.stdout.write(size_fmt + ' ' + current_path)
+        # sys.stdout.flush()
+        # self._last_reported_size = size_fmt
 
     def report_done(
         self, total_size, all_count, error_count, warning_count, paths, new_paths, updated_paths,
