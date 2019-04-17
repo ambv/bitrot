@@ -303,7 +303,8 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
     progressCounter=0
     print("Scanning file and directory names to fix... Please wait...")
     if verbosity:
-        bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
+        if self.verbosity:
+            bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for root, dirs, files in os.walk(directory, topdown=False):
         for f in files:
             if (isDirtyString(f)):
@@ -546,7 +547,7 @@ class Bitrot(object):
 
         if self.verbosity:
             bar = progressbar.ProgressBar(max_value=len(paths),widgets=[format_custom_text,
-                progressbar.AdaptiveETA(format_not_started='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s|ETA: --:--:--', format_finished='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s|ETA:%(eta)8s', format_zero='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s|ETA: 00:00:00', format_NA='%(value)02d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s|ETA: N/A'),
+                progressbar.AdaptiveETA(format_not_started='%(value)2d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_finished='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_zero='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_NA='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s'),
                 progressbar.Bar(marker='#', left='|', right='|', fill=' ', fill_left=True),               
                 ])
           
