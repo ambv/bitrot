@@ -492,6 +492,7 @@ class Bitrot(object):
 
         cur = conn.cursor()
         new_paths = []
+        existing_paths = []
         updated_paths = []
         renamed_paths = []
         errors = []
@@ -674,6 +675,9 @@ class Bitrot(object):
                     renamed_paths.append((stored_path, p_uni))
                     missing_paths.discard(stored_path)
                 continue
+            else:
+            	existing_paths.append(p)
+            	
             stored_mtime, stored_hash, stored_ts = row
 
             if (int(stored_mtime) != new_mtime) and not (self.test == 2):
@@ -726,6 +730,7 @@ class Bitrot(object):
                 len(errors),
                 len(warnings),
                 paths,
+                existing_paths,
                 new_paths,
                 updated_paths,
                 renamed_paths,
@@ -817,7 +822,7 @@ class Bitrot(object):
         # self._last_reported_size = size_fmt
 
     def report_done(
-        self, total_size, all_count, error_count, warning_count, paths, new_paths, updated_paths,
+        self, total_size, all_count, error_count, warning_count, paths, existing_paths, new_paths, updated_paths,
         renamed_paths, missing_paths, tooOldList, ignoredList, fixedRenameList, fixedRenameCounter,
         fixedPropertiesList, fixedPropertiesCounter, log):
 
@@ -836,27 +841,26 @@ class Bitrot(object):
         if self.verbosity >= 1:
             if (all_count == 1):
                 printAndOrLog(
-                    '\n1 entry in the database, {} new, {} updated, '
+                    '\n1 entry in the database, {} existing, {} new, {} updated, '
                     '{} renamed, {} missing, {} skipped, {} fixed'.format(
-                        len(new_paths), len(updated_paths),
+                        len(existing_paths), len(new_paths), len(updated_paths),
                         len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed),log)
             else:
                 printAndOrLog(
-                    '\n{} entries in the database, {} new, {} updated, '
+                    '\n{} entries in the database, {} existing, {} new, {} updated, '
                     '{} renamed, {} missing, {} skipped, {} fixed.'.format(
-                        all_count, len(new_paths), len(updated_paths),
+                        all_count, len(existing_paths), len(new_paths), len(updated_paths),
                         len(renamed_paths), len(missing_paths), len(tooOldList), totalFixed),log)
 
         if self.verbosity >= 5:
-            if (len(paths) == 1):
-                printAndOrLog('\n1 existing entry:',log)
-            else:
-                printAndOrLog('\n{} existing entries:'.format(len(paths)),log)
-
-            paths.sort()
-            for path in paths:
-                printAndOrLog(' {}'.format(path.encode(FSENCODING)),log)
-
+            if (existing_paths):
+                if (len(existing_paths) == 1):
+                    printAndOrLog('\n1 existing entry:',log)
+                else:
+                    printAndOrLog('\n{} existing entries:'.format(len(paths)),log)
+                existing_paths.sort()
+                for path in existing_paths:
+                    printAndOrLog(' {}'.format(path.encode(FSENCODING)),log)
 
         if self.verbosity >= 4:
             if (ignoredList):
