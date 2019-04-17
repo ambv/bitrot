@@ -272,7 +272,7 @@ def get_sqlite3_cursor(path, copy=False):
                     shutil.copyfileobj(db_orig, db_copy)
                 finally:
                     db_copy.close()
-                db_orig.close()
+                    db_orig.close()
         except Exception as err:
             printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(path, err),log)
             raise
