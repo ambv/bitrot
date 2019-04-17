@@ -511,7 +511,6 @@ class Bitrot(object):
         destinationDirectory = SOURCE_DIR;
         if (SOURCE_DIR != DESTINATION_DIR):
             os.chdir(destinationDirectory)
-            destinationDirectory = "b\'.\'"
 
         if (self.fix >= 1):
             fixedRenameList, fixedRenameCounter = fix_existing_paths(
@@ -1231,30 +1230,54 @@ def run_from_command_line():
             printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
             verbosity = 1
             pass
+    test = 0
+    if (args.test):
+        try:
+            test = int(args.test)
+            if (verbosity):
+                if (test == 0):
+                    printAndOrLog("Testing-only disabled.",args.log)
+                elif (test == 1):
+                    printAndOrLog("Just testing against an existing database, won\'t update anything.",args.log)
+                elif (test == 2):
+                    printAndOrLog("Won\'t compare dates, only hashes",args.log)
+                else:
+                    printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
+                    test = 0
+        except Exception as err:
+            printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
+            test = 0
+            pass
 
     try:
         if not args.source:
             SOURCE_DIR = '.'
             if verbosity:
-                printAndOrLog('Using current directory for file list',args.log)
+                printAndOrLog('Using current directory for file list.',args.log)
         else:
             os.chdir(args.source)
             if verbosity:
-                printAndOrLog('Source directory \'{}\''.format(args.source),args.log)
+                printAndOrLog('Source directory \'{}\'.'.format(args.source),args.log)
     except Exception as err:
             SOURCE_DIR = '.'
-            printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log) 
-    
+            if verbosity:
+                printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log) 
+
     DESTINATION_DIR = SOURCE_DIR
 
     try:
         if not args.destination:
             if verbosity:
-                printAndOrLog('Using current directory for file list',args.log)
+                printAndOrLog('Using current directory for destination file list.',args.log)
         else:
-            DESTINATION_DIR = args.destination
-            if verbosity:
-                printAndOrLog('Destination directory \'{}\''.format(args.destination),args.log)
+            if (test == 0 and args.destination):
+                if verbosity:
+                    printAndOrLog("Setting destination only works in testing mode. Please see --test.",args.log)
+                    printAndOrLog('Using current directory for destination file list.',args.log)
+            else:
+                DESTINATION_DIR = args.destination
+                if verbosity:
+                    printAndOrLog('Destination directory \'{}\'.'.format(args.destination),args.log)
     except Exception as err:
             printAndOrLog("Invalid Destination directory: \'{}\'. Using current directory. Received error: {}".format(args.destination, err),args.log) 
 
@@ -1275,11 +1298,11 @@ def run_from_command_line():
         include_list = []
         if args.include_list == '-':
             if verbosity:
-                printAndOrLog('Using stdin for file list',args.log) 
+                printAndOrLog('Using stdin for file list.',args.log) 
             include_list = sys.stdin
         elif args.include_list:
             if verbosity:
-                printAndOrLog('Opening file inclusion list at \'{}\''.format(args.include_list),args.log)
+                printAndOrLog('Opening file inclusion list at \'{}\'.'.format(args.include_list),args.log)
             try:
                 #include_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.include_list)]
                 with open(args.include_list) as includeFile:
@@ -1296,7 +1319,7 @@ def run_from_command_line():
         exclude_list = []
         if args.exclude_list:
             if verbosity:
-                printAndOrLog('Opening file exclusion list at \'{}\''.format(args.exclude_list),args.log)
+                printAndOrLog('Opening file exclusion list at \'{}\'.'.format(args.exclude_list),args.log)
             try:
                 # exclude_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.exclude_list)]
                 with open(args.exclude_list) as excludeFile:
@@ -1353,24 +1376,6 @@ def run_from_command_line():
         else:
             sfv = ""
 
-        test = 0
-        if (args.test):
-            try:
-                test = int(args.test)
-                if (verbosity):
-                    if (test == 0):
-                        printAndOrLog("Testing-only disabled.",args.log)
-                    elif (test == 1):
-                        printAndOrLog("Just testing against an existing database, won\'t update anything.",args.log)
-                    elif (test == 2):
-                        printAndOrLog("Won\'t compare dates, only hashes",args.log)
-                    else:
-                        printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
-                        test = 0
-            except Exception as err:
-                printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
-                test = 0
-                pass
 
         recent = 0;
         if (args.recent):
