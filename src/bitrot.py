@@ -39,6 +39,7 @@ import stat
 import sys
 import tempfile
 import time
+#import progressbar
 import smtplib
 from fnmatch import fnmatch
 import email.utils
@@ -134,6 +135,7 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
             while d:
                 digest.update(d)
                 d = f.read(chunk_size)
+            f.close
     except Exception as err:
         printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
 
@@ -150,6 +152,7 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
                     while d2:
                         sfvDigest.update(d2)
                         d2 = f2.read(chunk_size)
+                    f2.close
             except Exception as err:
                 printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
             writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv) 
@@ -170,10 +173,10 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
                         crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
                         #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
                         d2 = f2.read(chunk_size)
+                        f2.close()
             except Exception as err:
                 printAndOrLog("Could not open SFV file: \'{}\'. Received error: {}".format(path, err),log)
             writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
-
 
     return digest.hexdigest()
 
@@ -269,6 +272,7 @@ def get_sqlite3_cursor(path, copy=False):
                     shutil.copyfileobj(db_orig, db_copy)
                 finally:
                     db_copy.close()
+                db_orig.close()
         except Exception as err:
             printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(path, err),log)
             raise
@@ -361,6 +365,8 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
     paths = []
     total_size = 0
     ignoredList = []
+    #progressCounter=0
+    #bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for path, _, files in os.walk(directory):
         for f in files:
             p = os.path.join(path, f)
@@ -406,8 +412,11 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                             #writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
                     continue
                 paths.append(p)
+                #progressCounter+=1
+                #bar.update(progressCounter)
                 total_size += st.st_size
     paths.sort()
+    #progressbar.streams.flush()
     return paths, total_size, ignoredList
 
 class BitrotException(Exception):
@@ -960,6 +969,7 @@ def check_sha512_integrity(verbosity=1, log=1):
     try:
         with open(sha512_path, 'rb') as f:
             old_sha512 = f.read().strip()
+            f.close()
     except Exception as err:
         printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, err),log)
     
@@ -967,6 +977,7 @@ def check_sha512_integrity(verbosity=1, log=1):
     try:
         with open(bitrot_db, 'rb') as f:
             digest.update(f.read())
+            f.close()
     except Exception as err:
         printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(bitrot_db, err),log)
     new_sha512 = digest.hexdigest().encode('ascii')
@@ -997,6 +1008,7 @@ def update_sha512_integrity(verbosity=1, log=1):
         try:
             with open(sha512_path, 'rb') as f:
                 old_sha512 = f.read().strip()
+                f.close()
         except Exception as err:
             printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, err),log)
 
@@ -1005,6 +1017,7 @@ def update_sha512_integrity(verbosity=1, log=1):
     try:
         with open(bitrot_db, 'rb') as f:
             digest.update(f.read())
+            f.close()
     except Exception as err:
         printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, err),log)
     new_sha512 = digest.hexdigest().encode('ascii')
@@ -1015,6 +1028,7 @@ def update_sha512_integrity(verbosity=1, log=1):
         try:
             with open(sha512_path, 'wb') as f:
                 f.write(new_sha512)
+                f.close()
         except Exception as err:
             printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, err),log)
         if verbosity:
@@ -1217,8 +1231,7 @@ def run_from_command_line():
                     for line in includeFile:
                         line = line.rstrip('\n').encode(FSENCODING)
                         include_list.append(line)
-                    if includeFile:
-                        includeFile.close() # should be harmless if include_list == sys.stdin
+                    includeFile.close() # should be harmless if include_list == sys.stdin
 
             except Exception as err:
                 printAndOrLog("Invalid inclusion list specified: \'{}\'. Not using an inclusion list. Received error: {}".format(args.include_list, err),args.log)
@@ -1235,8 +1248,7 @@ def run_from_command_line():
                     for line in excludeFile:
                         line = line.rstrip('\n').encode(FSENCODING)
                         exclude_list.append(line)
-                    if excludeFile:
-                        excludeFile.close() # should be harmless if include_list == sys.stdin
+                    excludeFile.close() # should be harmless if include_list == sys.stdin
             except Exception as err:
                 printAndOrLog("Invalid exclusion list specified: \'{}\'. Not using an exclusion list. Received error: {}".format(args.exclude_list, err),args.log)
                 exclude_list = []
