@@ -97,7 +97,7 @@ def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
         server.sendmail(FROMADDR, TOADDR, msg.as_string())
         server.quit()
     except Exception as err:
-        printAndOrLog('\nEmail sending error: {}'.format(err))
+        printAndOrLog('Email sending error: {}'.format(err))
 
 
 def writeToSFV(stringToWrite="", sfv=""):
@@ -658,7 +658,7 @@ class Bitrot(object):
                 new_hash = hash(p, self.chunk_size,self.algorithm,log=self.log,sfv=self.sfv)
             except (IOError, OSError) as e:
                 warnings.append(p)
-                printAndOrLog('\nWarning: Cannot compute hash of {} [{}]'.format(
+                printAndOrLog('Warning: Cannot compute hash of {} [{}]'.format(
                             #p, errno.errorcode[e.args[0]]))
                             p.encode(FSENCODING), errno.errorcode[e.args[0]]),self.log)
                 continue
@@ -829,9 +829,9 @@ class Bitrot(object):
         sizeUnits , total_size = calculateUnits(total_size=total_size)
         totalFixed = fixedRenameCounter + fixedPropertiesCounter
         if (error_count == 1):
-                printAndOrLog('\nFinished. {:.2f} {} of data read. 1 error found.'.format(total_size,sizeUnits),log)
+                printAndOrLog('Finished. {:.2f} {} of data read. 1 error found.'.format(total_size,sizeUnits),log)
         else:
-            printAndOrLog('\nFinished. {:.2f} {} of data read. {} errors found.'.format(total_size, sizeUnits, error_count),log)
+            printAndOrLog('Finished. {:.2f} {} of data read. {} errors found.'.format(total_size, sizeUnits, error_count),log)
 
         if (warning_count == 1):
             printAndOrLog(' 1 warning found.',log)
@@ -855,12 +855,12 @@ class Bitrot(object):
         if self.verbosity >= 5:
             if (existing_paths):
                 if (len(existing_paths) == 1):
-                    printAndOrLog('\n1 existing entry:',log)
+                    printAndOrLog('1 existing entry:',log)
                 else:
-                    printAndOrLog('\n{} existing entries:'.format(len(paths)),log)
+                    printAndOrLog('{} existing entries:'.format(len(paths)),log)
                 existing_paths.sort()
                 for path in existing_paths:
-                    printAndOrLog(' {}'.format(path.encode(FSENCODING)),log)
+                    printAndOrLog('{}'.format(path.encode(FSENCODING)),log)
 
         if self.verbosity >= 4:
             if (ignoredList):
@@ -877,28 +877,28 @@ class Bitrot(object):
                     if (len(tooOldList) == 1):
                         printAndOrLog("1 non-recent files ignored: ",log)
                         for row in tooOldList:
-                            printAndOrLog("  \n{}".format(row),log)
+                            printAndOrLog("{}".format(row),log)
                     else:
                         printAndOrLog("{} non-recent files ignored".format(len(tooOldList)),log)
                         for row in tooOldList:
-                            printAndOrLog("  \n{}".format(row),log)
+                            printAndOrLog("{}".format(row),log)
 
         if self.verbosity >= 3:
             if new_paths:
                 if (len(new_paths) == 1):
-                    printAndOrLog('\n1 new entry:',log)
+                    printAndOrLog('1 new entry:',log)
                 else:
-                    printAndOrLog('\n{} new entries:'.format(len(new_paths)),log)
+                    printAndOrLog('{} new entries:'.format(len(new_paths)),log)
 
                 new_paths.sort()
                 for path in new_paths:
-                    printAndOrLog(' {}'.format(path.encode(FSENCODING)),log)
+                    printAndOrLog('{}'.format(path.encode(FSENCODING)),log)
 
             if updated_paths:
                 if (len(updated_paths) == 1):
-                   printAndOrLog('\n1 entry updated:',log)
+                   printAndOrLog('1 entry updated:',log)
                 else:
-                    printAndOrLog('\n{} entries updated:'.format(len(updated_paths)),log)
+                    printAndOrLog('{} entries updated:'.format(len(updated_paths)),log)
 
                 updated_paths.sort()
                 for path in updated_paths:
@@ -906,9 +906,9 @@ class Bitrot(object):
 
             if renamed_paths:
                 if (len(renamed_paths) == 1):
-                    printAndOrLog('\n1 entry renamed:',log)
+                    printAndOrLog('1 entry renamed:',log)
                 else:
-                    printAndOrLog('\n{} entries renamed:'.format(len(renamed_paths)),log)
+                    printAndOrLog('{} entries renamed:'.format(len(renamed_paths)),log)
 
                 renamed_paths.sort()
                 for path in renamed_paths:
@@ -917,20 +917,20 @@ class Bitrot(object):
         if self.verbosity >= 2:
             if missing_paths:
                 if (len(missing_paths) == 1):
-                    printAndOrLog('\n1 entry missing:',log)
+                    printAndOrLog('1 entry missing:',log)
                 else:
-                    printAndOrLog('\n{} entries missing:'.format(len(missing_paths)),log)
+                    printAndOrLog('{} entries missing:'.format(len(missing_paths)),log)
 
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
-                   printAndOrLog(' {}'.format(path),log)
+                   printAndOrLog('{}'.format(path),log)
 
         if fixedRenameList:
             if (self.fix == 4) or (self.fix == 6) or (self.verbosity >= 2):
                 if (len(fixedRenameList) == 1):
-                    printAndOrLog('\n1 filename fixed:',log)
+                    printAndOrLog('1 filename fixed:',log)
                 else:
-                    printAndOrLog('\n{} filenames fixed:'.format(fixedRenameCounter),log)
+                    printAndOrLog('{} filenames fixed:'.format(fixedRenameCounter),log)
 
                 for i in range(0, fixedRenameCounter):
                     printAndOrLog('  \'{}\' to \'{}\''.format(fixedRenameList[i][0],fixedRenameList[i][1]),log)
@@ -938,9 +938,9 @@ class Bitrot(object):
         if fixedPropertiesList:
             if (self.fix == 2) or (self.fix == 6) or (self.verbosity >= 2):
                 if (len(fixedPropertiesList) == 1):
-                    printAndOrLog('\n1 file property fixed:',log)
+                    printAndOrLog('1 file property fixed:',log)
                 else:
-                    printAndOrLog('\n{} file properties fixed:'.format(fixedPropertiesCounter),log)
+                    printAndOrLog('{} file properties fixed:'.format(fixedPropertiesCounter),log)
 
                 for i in range(0, fixedPropertiesCounter):
                     printAndOrLog('  Added missing access or modification timestamp to {}'.format(fixedPropertiesList[i][0]),log)
