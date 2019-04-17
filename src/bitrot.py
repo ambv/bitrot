@@ -510,7 +510,8 @@ class Bitrot(object):
 
         destinationDirectory = SOURCE_DIR;
         if (SOURCE_DIR != DESTINATION_DIR):
-            destinationDirectory = DESTINATION_DIR
+            os.chdir(destinationDirectory)
+            destinationDirectory = "b\'.\'"
 
         if (self.fix >= 1):
             fixedRenameList, fixedRenameCounter = fix_existing_paths(
@@ -1237,7 +1238,7 @@ def run_from_command_line():
             if verbosity:
                 printAndOrLog('Using current directory for file list',args.log)
         else:
-            SOURCE_DIR = args.source
+            os.chdir(args.source)
             if verbosity:
                 printAndOrLog('Source directory \'{}\''.format(args.source),args.log)
     except Exception as err:
