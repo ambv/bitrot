@@ -55,7 +55,7 @@ IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
 DEFAULT_HASH_FUNCTION = "SHA512"
 SOURCE_DIR='.'
-DESTINATION_DIR='.'
+DESTINATION_DIR=SOURCE_DIR
 
 if sys.version[0] == '2':
     str = type(u'text')
@@ -1046,6 +1046,7 @@ def run_from_command_line():
     global FSENCODING
     global SOURCE_DIR
     global DESTINATION_DIR
+    SOURCE_DIR='.'
     parser = argparse.ArgumentParser(prog='bitrot')
     parser.add_argument(
         '-l', '--follow-links', action='store_true',
@@ -1163,7 +1164,8 @@ def run_from_command_line():
             pass
 
     try:
-        if args.source == '-':
+        if not args.source:
+            SOURCE_DIR = '.'
             if verbosity:
                 printAndOrLog('Using current directory for file list',args.log)
         else:
@@ -1174,8 +1176,10 @@ def run_from_command_line():
             SOURCE_DIR = '.'
             printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log) 
     
+    DESTINATION_DIR = SOURCE_DIR
+
     try:
-        if args.destination == '-':
+        if not args.destination:
             if verbosity:
                 printAndOrLog('Using current directory for file list',args.log)
         else:
@@ -1183,7 +1187,6 @@ def run_from_command_line():
             if verbosity:
                 printAndOrLog('Destination directory \'{}\''.format(args.destination),args.log)
     except Exception as err:
-            DESTINATION_DIR = '.'
             printAndOrLog("Invalid Destination directory: \'{}\'. Using current directory. Received error: {}".format(args.destination, err),args.log) 
 
     if (args.log):
