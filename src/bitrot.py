@@ -39,7 +39,7 @@ import stat
 import sys
 import tempfile
 import time
-#import progressbar
+import progressbar
 import smtplib
 from fnmatch import fnmatch
 import email.utils
@@ -300,10 +300,11 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
 #   Use relative path renaming by os.chdir(root). Of course using correct absolute paths also works, but IMHO relative paths are just more elegant.
 #   Pass an unambiguous string into os.walk() as others have mentioned.
 #   Also note that topdown=False in os.walk() doesn't matter. Since you are not renaming directories, the directory structure will be invariant during os.walk().
-
+    progressCounter=0
+    print("Scanning file and directory names to fix... Please wait...")
+    bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for root, dirs, files in os.walk(directory, topdown=False):
         for f in files:
-
             if (isDirtyString(f)):
                 if (fix == 3) or (fix == 5):
                     warnings.append(f)
@@ -327,7 +328,8 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uni))
                     fixedRenameCounter += 1
-
+            progressCounter+=1
+            bar.update(progressCounter)
         for d in dirs:
             if (isDirtyString(d)):
                 try:
@@ -349,6 +351,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uni))
                     fixedRenameCounter += 1
+    bar.finish()
     return fixedRenameList, fixedRenameCounter
 
 def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=(), 
@@ -365,8 +368,9 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
     paths = []
     total_size = 0
     ignoredList = []
-    #progressCounter=0
-    #bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
+    progressCounter=0
+    print("Mapping all files... Please wait...")
+    bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for path, _, files in os.walk(directory):
         for f in files:
             p = os.path.join(path, f)
@@ -412,11 +416,11 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                             #writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
                     continue
                 paths.append(p)
-                #progressCounter+=1
-                #bar.update(progressCounter)
+                progressCounter+=1
+                bar.update(progressCounter)
                 total_size += st.st_size
     paths.sort()
-    #progressbar.streams.flush()
+    bar.finish()
     return paths, total_size, ignoredList
 
 class BitrotException(Exception):
@@ -507,8 +511,6 @@ class Bitrot(object):
             fixedRenameCounter = fixedRenameCounter
         )
 
-        print("Loading file list... Please wait...")
-
         paths, total_size, ignoredList = list_existing_paths(
             destinationDirectory,
             expected=missing_paths, 
@@ -521,7 +523,7 @@ class Bitrot(object):
             warnings=warnings,
 
         )
-        print("Hashing files... Please wait...")
+
         FIMErrorCounter = 0;
         for p in paths:
             p_uni = p.encode(FSENCODING)
