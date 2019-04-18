@@ -46,7 +46,10 @@ performance improvements, I'm accepting pull requests! :)
 
 Change Log
 ----------
-
+0.9.4
+~~~~~
+* Added better progress bar (pip3 install progressbar2)
+* Can now specify source and destination directories
 0.9.3
 ~~~~~
 * Added option to ignore date modified (only checks hashes). Great for verifying backups for integrity (File Integrity Monitoring) using -t 2 or --test 2
