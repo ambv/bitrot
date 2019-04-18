@@ -1232,6 +1232,28 @@ def run_from_command_line():
             printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
             verbosity = 1
             pass
+
+    try:
+        if not args.source:
+            SOURCE_DIR = '.'
+            if verbosity:
+                printAndOrLog('Using current directory for file list.',args.log)
+        else:
+            os.chdir(args.source)
+            SOURCE_DIR_PATH = args.source
+            if verbosity:
+                printAndOrLog('Source directory \'{}\'.'.format(args.source),args.log)
+    except Exception as err:
+            SOURCE_DIR = '.'
+            if verbosity:
+                printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log)
+    if args.sum:
+        try:
+            print("Hash of {} is \n{}".format(SOURCE_DIR_PATH,stable_sum()))
+            exit()
+        except RuntimeError as e:
+            print(str(e).encode(FSENCODING), file=sys.stderr)
+
     test = 0
     if (args.test):
         try:
@@ -1251,23 +1273,7 @@ def run_from_command_line():
             test = 0
             pass
 
-    try:
-        if not args.source:
-            SOURCE_DIR = '.'
-            if verbosity:
-                printAndOrLog('Using current directory for file list.',args.log)
-        else:
-            os.chdir(args.source)
-            SOURCE_DIR_PATH = args.source
-            if verbosity:
-                printAndOrLog('Source directory \'{}\'.'.format(args.source),args.log)
-    except Exception as err:
-            SOURCE_DIR = '.'
-            if verbosity:
-                printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log) 
-
     DESTINATION_DIR = SOURCE_DIR
-
     try:
         if not args.destination:
             if verbosity:
@@ -1292,167 +1298,161 @@ def run_from_command_line():
             writeToLog('Log started at ')
             writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 
-    if args.sum:
+    include_list = []
+    if args.include_list == '-':
+        if verbosity:
+            printAndOrLog('Using stdin for file list.',args.log) 
+        include_list = sys.stdin
+    elif args.include_list:
+        if verbosity:
+            printAndOrLog('Opening file inclusion list at \'{}\'.'.format(args.include_list),args.log)
         try:
-            print(stable_sum())
-        except RuntimeError as e:
-            print(str(e).encode(FSENCODING), file=sys.stderr)
+            #include_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.include_list)]
+            with open(args.include_list) as includeFile:
+                for line in includeFile:
+                    line = line.rstrip('\n').encode(FSENCODING)
+                    include_list.append(line)
+                includeFile.close() # should be harmless if include_list == sys.stdin
+
+        except Exception as err:
+            printAndOrLog("Invalid inclusion list specified: \'{}\'. Not using an inclusion list. Received error: {}".format(args.include_list, err),args.log)
+            include_list = []
     else:
         include_list = []
-        if args.include_list == '-':
-            if verbosity:
-                printAndOrLog('Using stdin for file list.',args.log) 
-            include_list = sys.stdin
-        elif args.include_list:
-            if verbosity:
-                printAndOrLog('Opening file inclusion list at \'{}\'.'.format(args.include_list),args.log)
-            try:
-                #include_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.include_list)]
-                with open(args.include_list) as includeFile:
-                    for line in includeFile:
-                        line = line.rstrip('\n').encode(FSENCODING)
-                        include_list.append(line)
-                    includeFile.close() # should be harmless if include_list == sys.stdin
-
-            except Exception as err:
-                printAndOrLog("Invalid inclusion list specified: \'{}\'. Not using an inclusion list. Received error: {}".format(args.include_list, err),args.log)
-                include_list = []
-        else:
-            include_list = []
-        exclude_list = []
-        if args.exclude_list:
-            if verbosity:
-                printAndOrLog('Opening file exclusion list at \'{}\'.'.format(args.exclude_list),args.log)
-            try:
-                # exclude_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.exclude_list)]
-                with open(args.exclude_list) as excludeFile:
-                    for line in excludeFile:
-                        line = line.rstrip('\n').encode(FSENCODING)
-                        exclude_list.append(line)
-                    excludeFile.close() # should be harmless if include_list == sys.stdin
-            except Exception as err:
-                printAndOrLog("Invalid exclusion list specified: \'{}\'. Not using an exclusion list. Received error: {}".format(args.exclude_list, err),args.log)
-                exclude_list = []
-        else:
+    exclude_list = []
+    if args.exclude_list:
+        if verbosity:
+            printAndOrLog('Opening file exclusion list at \'{}\'.'.format(args.exclude_list),args.log)
+        try:
+            # exclude_list = [line.rstrip('\n').encode(FSENCODING) for line in open(args.exclude_list)]
+            with open(args.exclude_list) as excludeFile:
+                for line in excludeFile:
+                    line = line.rstrip('\n').encode(FSENCODING)
+                    exclude_list.append(line)
+                excludeFile.close() # should be harmless if include_list == sys.stdin
+        except Exception as err:
+            printAndOrLog("Invalid exclusion list specified: \'{}\'. Not using an exclusion list. Received error: {}".format(args.exclude_list, err),args.log)
             exclude_list = []
+    else:
+        exclude_list = []
 
-        if (args.algorithm):
-            #combined = '\t'.join(hashlib.algorithms_available)
-            #if (args.algorithm in combined):
+    if (args.algorithm):
+        #combined = '\t'.join(hashlib.algorithms_available)
+        #if (args.algorithm in combined):
 
-            #word_to_check = args.algorithm
-            #wordlist = hashlib.algorithms_available
-            #result = any(word_to_check in word for word in wordlist)
+        #word_to_check = args.algorithm
+        #wordlist = hashlib.algorithms_available
+        #result = any(word_to_check in word for word in wordlist)
 
-            #algorithms_available = hashlib.algorithms_available
-            #search = args.algorithm
-            #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
-            if (isValidHashingFunction(stringToValidate=args.algorithm) == True):
-                algorithm = args.algorithm.upper()
-                if (verbosity):
-                    printAndOrLog('Using {} for hashing function.'.format(algorithm),args.log)
-            else:
-                if (verbosity):
-                    printAndOrLog("Invalid hashing function specified: {}. Using default {}.".format(args.algorithm,DEFAULT_HASH_FUNCTION),args.log)
-                algorithm = DEFAULT_HASH_FUNCTION
+        #algorithms_available = hashlib.algorithms_available
+        #search = args.algorithm
+        #result = next((True for algorithms_available in algorithms_available if search in algorithms_available), False)
+        if (isValidHashingFunction(stringToValidate=args.algorithm) == True):
+            algorithm = args.algorithm.upper()
+            if (verbosity):
+                printAndOrLog('Using {} for hashing function.'.format(algorithm),args.log)
         else:
+            if (verbosity):
+                printAndOrLog("Invalid hashing function specified: {}. Using default {}.".format(args.algorithm,DEFAULT_HASH_FUNCTION),args.log)
             algorithm = DEFAULT_HASH_FUNCTION
-        sfv_path = get_path(SOURCE_DIR_PATH,ext=b'sfv')
-        md5_path = get_path(SOURCE_DIR_PATH,ext=b'md5')
+    else:
+        algorithm = DEFAULT_HASH_FUNCTION
+    sfv_path = get_path(SOURCE_DIR_PATH,ext=b'sfv')
+    md5_path = get_path(SOURCE_DIR_PATH,ext=b'md5')
+    try:
+        os.remove(sfv_path)
+    except Exception as err:
+        pass
+    try:
+        os.remove(md5_path)
+    except Exception as err:
+        pass
+    if (args.sfv):
+        if (args.sfv.upper() == "MD5" or args.sfv.upper() == "SFV"): 
+            sfv = args.sfv.upper() 
+            if (verbosity):
+                printAndOrLog('Will generate an {} file.'.format(sfv),args.log) 
+        else:
+            if (verbosity):
+                printAndOrLog("Invalid SFV/MD5 filetype specified: {}. Will not generate any additional file.".format(args.sfv),args.log)
+            sfv = ""
+    else:
+        sfv = ""
+
+
+    recent = 0;
+    if (args.recent):
         try:
-            os.remove(sfv_path)
-        except Exception as err:
-            pass
-        try:
-            os.remove(md5_path)
-        except Exception as err:
-            pass
-        if (args.sfv):
-            if (args.sfv.upper() == "MD5" or args.sfv.upper() == "SFV"): 
-                sfv = args.sfv.upper() 
+            recent = int(args.recent)
+            if (recent):
                 if (verbosity):
-                    printAndOrLog('Will generate an {} file.'.format(sfv),args.log) 
+                    printAndOrLog("Only processing files < {} days old.".format(args.recent),args.log)
             else:
                 if (verbosity):
-                    printAndOrLog("Invalid SFV/MD5 filetype specified: {}. Will not generate any additional file.".format(args.sfv),args.log)
-                sfv = ""
-        else:
-            sfv = ""
-
-
-        recent = 0;
-        if (args.recent):
-            try:
-                recent = int(args.recent)
-                if (recent):
-                    if (verbosity):
-                        printAndOrLog("Only processing files < {} days old.".format(args.recent),args.log)
-                else:
-                    if (verbosity):
-                        printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
-                    recent = 0
-            except Exception as err:
-                printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
+                    printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
                 recent = 0
-                pass       
+        except Exception as err:
+            printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
+            recent = 0
+            pass       
 
-        fix = 0
-        if (args.fix):
-            try:
-                fix = int(args.fix)
-                if (fix == 0):
-                    if (verbosity):
-                        printAndOrLog("Will not check problem files.",args.log)
-                elif (fix == 1):
-                    if (verbosity):
-                        printAndOrLog("Will report files that have missing access and modification timestamps.",args.log)
-                elif (fix == 2):
-                    if (verbosity):
-                        printAndOrLog("Fixes files that have missing access and modification timestamps.",args.log)
-                elif (fix == 3):
-                    if (verbosity):
-                        printAndOrLog("Will report files that have invalid characters",args.log)
-                elif (fix == 4):
-                    if (verbosity):
-                        printAndOrLog("Fixes files by removing invalid characters. NOT RECOMMENDED.",args.log)
-                elif (fix == 5):
-                    if (verbosity):
-                        printAndOrLog("Will report files that have missing access and modification timestamps and invalid characters.",args.log)
-                elif (fix == 6):
-                    if (verbosity):
-                        printAndOrLog("Fixes files by removing invalid characters and adding missing access and modification times. NOT RECOMMENDED.",args.log)
-                else:
-                    if (verbosity):
-                        printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
-                        fix = 5
-            except Exception as err:
-                printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
-                fix = 5
-                pass
-
-        bt = Bitrot(
-            verbosity = verbosity,
-            algorithm = algorithm,
-            test = test,
-            recent = recent,
-            email = args.email,
-            log = args.log,
-            follow_links = args.follow_links,
-            commit_interval = args.commit_interval,
-            chunk_size = args.chunk_size,
-            include_list = include_list,
-            exclude_list = exclude_list,
-            sfv = sfv,
-            fix = fix,
-        )
-        if args.fsencoding:
-            FSENCODING = args.fsencoding
-
+    fix = 0
+    if (args.fix):
         try:
-            bt.run()
-        except BitrotException as bre:
-            printAndOrLog('Error: {}'.format(bre.args[1]),args.log)
-            sys.exit(bre.args[0])
+            fix = int(args.fix)
+            if (fix == 0):
+                if (verbosity):
+                    printAndOrLog("Will not check problem files.",args.log)
+            elif (fix == 1):
+                if (verbosity):
+                    printAndOrLog("Will report files that have missing access and modification timestamps.",args.log)
+            elif (fix == 2):
+                if (verbosity):
+                    printAndOrLog("Fixes files that have missing access and modification timestamps.",args.log)
+            elif (fix == 3):
+                if (verbosity):
+                    printAndOrLog("Will report files that have invalid characters",args.log)
+            elif (fix == 4):
+                if (verbosity):
+                    printAndOrLog("Fixes files by removing invalid characters. NOT RECOMMENDED.",args.log)
+            elif (fix == 5):
+                if (verbosity):
+                    printAndOrLog("Will report files that have missing access and modification timestamps and invalid characters.",args.log)
+            elif (fix == 6):
+                if (verbosity):
+                    printAndOrLog("Fixes files by removing invalid characters and adding missing access and modification times. NOT RECOMMENDED.",args.log)
+            else:
+                if (verbosity):
+                    printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
+                    fix = 5
+        except Exception as err:
+            printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
+            fix = 5
+            pass
+
+    bt = Bitrot(
+        verbosity = verbosity,
+        algorithm = algorithm,
+        test = test,
+        recent = recent,
+        email = args.email,
+        log = args.log,
+        follow_links = args.follow_links,
+        commit_interval = args.commit_interval,
+        chunk_size = args.chunk_size,
+        include_list = include_list,
+        exclude_list = exclude_list,
+        sfv = sfv,
+        fix = fix,
+    )
+    if args.fsencoding:
+        FSENCODING = args.fsencoding
+
+    try:
+        bt.run()
+    except BitrotException as bre:
+        printAndOrLog('Error: {}'.format(bre.args[1]),args.log)
+        sys.exit(bre.args[0])
 
 if __name__ == '__main__':
     run_from_command_line()
