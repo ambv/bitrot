@@ -378,8 +378,8 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
     total_size = 0
     ignoredList = []
     progressCounter=0
-    print("Mapping all files... Please wait...")
     if verbosity:
+        print("Mapping all files... Please wait...")
         bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for path, _, files in os.walk(directory):
         for f in files:
@@ -538,16 +538,14 @@ class Bitrot(object):
         )
 
         FIMErrorCounter = 0;
-        print("Hashing all files... Please wait...")
-
-        format_custom_text = progressbar.FormatCustomText(
-            '%(f)s',
-            dict(
-                f='',
-            )
-        )
-
         if self.verbosity:
+            print("Hashing all files... Please wait...")
+            format_custom_text = progressbar.FormatCustomText(
+                '%(f)s',
+                dict(
+                    f='',
+                )
+            )
             bar = progressbar.ProgressBar(max_value=len(paths),widgets=[format_custom_text,
                 progressbar.AdaptiveETA(format_not_started='%(value)2d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_finished='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_zero='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_NA='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s'),
                 progressbar.Bar(marker='#', left='|', right='|', fill=' ', fill_left=True),               
