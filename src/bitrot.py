@@ -547,7 +547,7 @@ class Bitrot(object):
                 )
             )
             bar = progressbar.ProgressBar(max_value=len(paths),widgets=[format_custom_text,
-                progressbar.AdaptiveETA(format_not_started='%(value)2d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_finished='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_zero='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_NA='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s'),
+                progressbar.AdaptiveETA(format_not_started='%(value)2d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_finished='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s|ETA:%(eta)8s', format_zero='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s', format_NA='%(value)01d/%(max_value)d|%(percentage)3d%%|Elapsed:%(elapsed)8s'),
                 progressbar.Bar(marker='#', left='|', right='|', fill=' ', fill_left=True),               
                 ])
           
@@ -792,33 +792,6 @@ class Bitrot(object):
             current_path += ' ' * (max_path_size - len(current_path))
         current_path = current_path + '|'
         return current_path
-
-
-        # size_fmt = '\r{:>6.1%}'.format(current_size/(total_size or 1))
-        # if size_fmt == self._last_reported_size:
-        #     return
-
-        # # show current file in progress too
-        # terminal_size = shutil.get_terminal_size()
-        # # but is it too big for terminal window?
-        # cols = terminal_size.columns
-        # max_path_size = cols - len(size_fmt) - 1
-
-        # #without this line, weird character in the filename could cause strange printing output
-        # current_path = cleanString(stringToClean=current_path.decode(FSENCODING))
-
-        # if len(current_path) > max_path_size:
-        #     # show first half and last half, separated by ellipsis
-        #     # e.g. averylongpathnameaveryl...ameaverylongpathname
-        #     half_mps = (max_path_size - 3) // 2
-        #     current_path = current_path[:half_mps] + '...' + current_path[-half_mps:]
-        # else:
-        #     # pad out with spaces, otherwise previous filenames won't be erased
-        #     current_path += ' ' * (max_path_size - len(current_path))
-            
-        # sys.stdout.write(size_fmt + ' ' + current_path)
-        # sys.stdout.flush()
-        # self._last_reported_size = size_fmt
 
     def report_done(
         self, total_size, all_count, error_count, warning_count, paths, existing_paths, new_paths, updated_paths,
