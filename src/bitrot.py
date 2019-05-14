@@ -88,7 +88,7 @@ def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
     USERNAME = 'authorUsername'
     PASSWORD = 'authorPassword'
-    
+     
     try:
         msg['Subject'] = subject
         # The actual mail send
@@ -1204,6 +1204,13 @@ def run_from_command_line():
             verbosity = 1
             pass
 
+    if (args.log):
+        log_path = get_path(SOURCE_DIR_PATH,ext=b'log')
+        if (verbosity):
+            writeToLog('\n=============================\n')
+            writeToLog('Log started at ')
+            writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+
     try:
         if not args.source:
             SOURCE_DIR = '.'
@@ -1260,14 +1267,6 @@ def run_from_command_line():
                     printAndOrLog('Destination directory \'{}\'.'.format(args.destination),args.log)
     except Exception as err:
             printAndOrLog("Invalid Destination directory: \'{}\'. Using current directory. Received error: {}".format(args.destination, err),args.log) 
-
-    if (args.log):
-        log_path = get_path(SOURCE_DIR_PATH,ext=b'log')
-        if (verbosity):
-            if os.path.exists(log_path):
-                writeToLog('\n======================================================\n')
-            writeToLog('Log started at ')
-            writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 
     include_list = []
     if args.include_list == '-':
