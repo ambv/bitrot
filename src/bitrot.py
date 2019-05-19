@@ -32,7 +32,6 @@ import datetime
 import errno
 import hashlib
 import os
-import re
 import shutil
 import sqlite3
 import stat
@@ -55,7 +54,7 @@ if sys.version[0] == '2':
 
 
 def normalize_path(path):
-    if re.search('utf-8', FSENCODING, re.I):
+    if FSENCODING == 'utf-8' or FSENCODING == 'UTF-8':
         return unicodedata.normalize('NFKC', path)
     else:
         return path
