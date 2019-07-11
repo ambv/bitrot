@@ -799,7 +799,7 @@ class Bitrot(object):
         return result
 
     def progressFormat(self, currentPosition,totalPosition,current_path): 
-        current_path = cleanString(stringToClean=current_path)
+        current_path = cleanString(stringToClean=current_path.decode(FSENCODING))
         terminal_size = shutil.get_terminal_size()
         cols = terminal_size.columns
         max_path_size =  int(shutil.get_terminal_size().columns/2)
