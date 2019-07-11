@@ -47,7 +47,8 @@ from email.mime.text import MIMEText
 #import binascii
 #from zlib import crc32
 import zlib
-#import re
+import re
+import unicodedata
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 2
@@ -63,6 +64,13 @@ if sys.version[0] == '2':
     str = type(u'text')
     # use \'bytes\' for bytestrings
 
+def normalize_path(path):
+    if re.search('utf-8', FSENCODING, re.I):
+        newPath = unicodedata.normalize('NFKC', str(path))
+        return b'newPath'
+    else:
+        return path
+
 def printAndOrLog(stringToProcess,log=True):
     print(stringToProcess)
     if (log):
@@ -71,7 +79,8 @@ def printAndOrLog(stringToProcess,log=True):
 
 def writeToLog(stringToWrite=""):
     log_path = get_path(SOURCE_DIR_PATH,ext=b'log')
-    stringToWrite = cleanString(stringToWrite)
+    # stringToWrite = cleanString(stringToWrite)
+    stringToWrite = stringToWrite
     try:
         with open(log_path, 'a') as logFile:
             logFile.write(stringToWrite)
@@ -321,6 +330,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                     if (fix == 4) or (fix == 6):
                         os.rename(os.path.join(root, f), os.path.join(root, cleanString(f)))
                     p_uni = cleanString(f)
+
                 except Exception as ex:
                     warnings.append(f)
                     printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(os.path.join(root, f),ex),log)
@@ -346,6 +356,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                         os.rename(os.path.join(root, d), os.path.join(root, cleanString(d)))
                     #os.rename(d, cleanString(d))  # relative path, more elegant
                     p_uni = cleanString(d)
+
                 except Exception as ex:
                     warnings.append(d)
                     printAndOrLog('Can\'t rename: {} due to warning: \'{}\''.format(os.path.join(root, d),ex),log)
@@ -374,7 +385,7 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
     \'follow_links\' is False (the default).  All entries present in \'expected\'
     must be files (can't be directories or symlinks).
     """
-    paths = []
+    paths = set()
     total_size = 0
     ignoredList = []
     progressCounter=0
@@ -387,6 +398,7 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
             try:
                 #p_uni = p.decode(FSENCODING)
                 p_uni = p.encode(FSENCODING)
+
             except UnicodeDecodeError:
                 binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
                 warnings.append(p)
@@ -425,12 +437,11 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                             #writeToLog("\nIgnoring file: {}".format(p))
                             #writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
                     continue
-                paths.append(p)
+                paths.add(p)
                 if verbosity:
                     progressCounter+=1
                     bar.update(progressCounter)
                 total_size += st.st_size
-    paths.sort()
     if verbosity:
         bar.finish()
     return paths, total_size, ignoredList
@@ -508,6 +519,7 @@ class Bitrot(object):
         current_size = 0
                 
         missing_paths = self.select_all_paths(cur)
+        hashes = self.select_all_hashes(cur)
 
         if (SOURCE_DIR != DESTINATION_DIR):
             os.chdir(DESTINATION_DIR)
@@ -551,8 +563,9 @@ class Bitrot(object):
                 progressbar.Bar(marker='#', left='|', right='|', fill=' ', fill_left=True),               
                 ])
           
-        for p in paths:
+        for p in sorted(paths):
             p_uni = p.encode(FSENCODING)
+
             try:
                 st = os.stat(p)
             except OSError as ex:
@@ -666,7 +679,7 @@ class Bitrot(object):
             row = cur.fetchone()
             if not row:
                 stored_path = self.handle_unknown_path(
-                    cur, p_uni, new_mtime, new_hash
+                    cur, p_uni, new_mtime, new_hash, paths, hashes
                 )
                 self.maybe_commit(conn)
 
@@ -680,7 +693,6 @@ class Bitrot(object):
                 existing_paths.append(p)
 
             stored_mtime, stored_hash, stored_ts = row
-
             if (int(stored_mtime) != new_mtime) and not (self.test == 2):
                 updated_paths.append(p)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
@@ -774,6 +786,16 @@ class Bitrot(object):
         row = cur.fetchone()
         while row:
             result.add(row[0])
+            row = cur.fetchone()
+        return result
+
+    def select_all_hashes(self, cur):
+        result = {}
+        cur.execute('SELECT hash, path FROM bitrot')
+        row = cur.fetchone()
+        while row: 
+            rhash, rpath = row
+            result.setdefault(rhash, set()).add(rpath)
             row = cur.fetchone()
         return result
 
@@ -925,36 +947,31 @@ class Bitrot(object):
         if self.test and self.verbosity:
             printAndOrLog('Database file not updated on disk (test mode).',log)
 
-    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1):
-        """Either add a new entry to the database or update the existing entry
-        on rename.
+    def handle_unknown_path(self, cur, new_path, new_mtime, new_hash, paths, hashes):
+            """Either add a new entry to the database or update the existing entry
+            on rename.
+            Returns `new_path` if the entry was indeed new or the `stored_path` (e.g.
+            outdated path) if there was a rename.
+            """
 
-        Returns \'new_path\' if the entry was indeed new or the \'stored_path\' (e.g.
-        outdated path) if there was a rename.
-        """
-        cur.execute('SELECT mtime, path, timestamp FROM bitrot WHERE hash=?',
-                    (new_sha1,))
-        rows = cur.fetchall()
-        for row in rows:
-            stored_mtime, stored_path, stored_ts = row
-            if os.path.exists(stored_path):
-                # file still exists, move on
-                continue
+            try: # if the path isn't in the database
+                found = [path for path in hashes[new_hash] if path not in paths]
+                renamed = found.pop()
+                # update the path in the database
+                cur.execute(
+                    'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
+                    (new_mtime, new_path, ts(), renamed),
+                )
 
-            # update the path in the database
-            cur.execute(
-                'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
-                (new_mtime, new_path, ts(), stored_path),
-            )
-
-            return stored_path
-
-        # no rename, just a new file with the same hash
-        cur.execute(
-            'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
-            (new_path, new_mtime, new_sha1, ts()),
-        )
-        return new_path
+                return renamed
+            
+            # From hashes[new_hash] or found.pop() 
+            except (KeyError,IndexError):
+                cur.execute(
+                    'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
+                    (new_path, new_mtime, new_hash, ts()),
+                )
+                return new_path
 
 def get_path(directory=b'.', ext=b'db'):
     """Compose the path to the selected bitrot file."""
