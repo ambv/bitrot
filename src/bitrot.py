@@ -684,17 +684,17 @@ class Bitrot(object):
                 self.maybe_commit(conn)
 
                 if p_uni == stored_path:
-                    new_paths.append(p)   # FIXME: shouldn't that be p_uni instead of p?
+                    new_paths.append(p_uni)
                 else:
                     renamed_paths.append((stored_path, p_uni))
                     missing_paths.discard(stored_path)
                 continue
             else:
-                existing_paths.append(p)
+                existing_paths.append(p_uni)
 
             stored_mtime, stored_hash, stored_ts = row
             if (int(stored_mtime) != new_mtime) and not (self.test == 2):
-                updated_paths.append(p)
+                updated_paths.append(p_uni)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
                             'WHERE path=?',
                             (new_mtime, new_hash, ts(), p_uni))
@@ -854,7 +854,7 @@ class Bitrot(object):
                     printAndOrLog('{} existing entries:'.format(len(paths)),log)
                 existing_paths.sort()
                 for path in existing_paths:
-                    printAndOrLog('{}'.format(path.encode(FSENCODING)),log)
+                    printAndOrLog('{}'.format(path),log)
 
         if self.verbosity >= 4:
             if (ignoredList):
@@ -886,7 +886,7 @@ class Bitrot(object):
 
                 new_paths.sort()
                 for path in new_paths:
-                    printAndOrLog('{}'.format(path.encode(FSENCODING)),log)
+                    printAndOrLog('{}'.format(path),log)
 
             if updated_paths:
                 if (len(updated_paths) == 1):
@@ -896,7 +896,7 @@ class Bitrot(object):
 
                 updated_paths.sort()
                 for path in updated_paths:
-                    printAndOrLog(' {}'.format(path.encode(FSENCODING)),log)
+                    printAndOrLog(' {}'.format(path),log)
 
             if renamed_paths:
                 if (len(renamed_paths) == 1):
