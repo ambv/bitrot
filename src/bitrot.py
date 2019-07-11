@@ -574,7 +574,7 @@ class Bitrot(object):
                     # permissions. We'll just skip it for now.
                     warnings.append(p)
                     #writeToLog('\nWarning: \'{}\' is currently unavailable for reading: {}'.format(p_uni, ex))
-                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p.encode(FSENCODING), ex),self.log)
+                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p_uni, ex),self.log)
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
@@ -799,7 +799,7 @@ class Bitrot(object):
         return result
 
     def progressFormat(self, currentPosition,totalPosition,current_path): 
-        current_path = cleanString(stringToClean=current_path.decode(FSENCODING))
+        current_path = cleanString(stringToClean=current_path)
         terminal_size = shutil.get_terminal_size()
         cols = terminal_size.columns
         max_path_size =  int(shutil.get_terminal_size().columns/2)
