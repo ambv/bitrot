@@ -398,6 +398,7 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                 #p_uni = p.decode(FSENCODING)
                 p_uni = p.encode(FSENCODING)
 
+
             except UnicodeDecodeError:
                 binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
                 warnings.append(p)
@@ -681,7 +682,6 @@ class Bitrot(object):
                     cur, p_uni, new_mtime, new_hash, paths, hashes
                 )
                 self.maybe_commit(conn)
-
                 if p_uni == stored_path:
                     new_paths.append(p_uni)
                 else:
