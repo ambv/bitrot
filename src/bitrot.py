@@ -149,10 +149,9 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
         printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
 
     if (sfv != ""):
-        strippedPathString = str(pathStripper(path,sfv))
         if (sfv == "MD5" and algorithm.upper() == "MD5"):
             sfvDigest = digest.hexdigest()
-            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,strippedPathString),sfv=sfv,log=log) 
+            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,"*"+normalize_path(path)),sfv=sfv,log=log) 
         elif (sfv == "MD5"):
             sfvDigest = hashlib.md5()
             try:
@@ -164,7 +163,7 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
                     f2.close
             except Exception as err:
                 printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
-            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv,log=log) 
+            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),"*"+normalize_path(path)),sfv=sfv,log=log) 
         elif (sfv == "SFV"):
             try:
                 with open(path, 'rb') as f2:
@@ -182,21 +181,12 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
                         crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
                         #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
                         d2 = f2.read(chunk_size)
-                        f2.close()
+                    f2.close()
             except Exception as err:
-                printAndOrLog("Could not open SFV file: \'{}\'. Received error: {}".format(path, err),log=log)
-            writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv,log=log) 
+                printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log=log)
+            writeToSFV(stringToWrite="{} {}\n".format(path, "%08X" % crcvalue),sfv=sfv,log=log) 
 
     return digest.hexdigest()
-
-def pathStripper(pathToStrip="",sfv=""):
-    pathToStripString = cleanString(str(pathToStrip))
-    pathToStripString = pathToStripString.replace("b'.\\\\", "")
-    pathToStripString = pathToStripString.replace("\\\\", "\\")
-    pathToStripString = pathToStripString[:-1]
-    if (sfv == "MD5"):
-        pathToStripString = "*" + pathToStripString
-    return pathToStripString
 
 def is_int(val):
     if type(val) == int:
@@ -312,7 +302,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
     progressCounter=0
     print("Scanning file and directory names to fix... Please wait...")
     if verbosity:
-        if self.verbosity:
+        if verbosity:
             bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for root, dirs, files in os.walk(directory, topdown=False):
         for f in files:
@@ -406,7 +396,6 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                 binary_stderr.write(b"\n")
                 printAndOrLog("Warning: cannot decode file name: {}".format(p),log)
                 continue
-
             try:
                 if follow_links or p_uni in expected:
                     st = os.stat(p)
@@ -425,7 +414,7 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                                 for wildcard in ignored]
                 include_this = [fnmatch(file.encode(FSENCODING), wildcard) 
                                 for file in p.split(os.path.sep)
-                                for wildcard in included]                
+                                for wildcard in included]              
                 if not stat.S_ISREG(st.st_mode) or any(exclude_this) or any([fnmatch(p.encode(FSENCODING), exc) for exc in ignored]) or (included and not any([fnmatch(p.encode(FSENCODING), exc) for exc in included]) and not any(include_this)):
                 #if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
                     ignoredList.append(p)
@@ -930,7 +919,7 @@ class Bitrot(object):
 
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
-                   printAndOrLog('{}'.format(path.decode(FSENCODING),log))
+                   printAndOrLog('{}'.format(path,log))
         if fixedRenameList:
             if (self.fix == 4) or (self.fix == 6) or (self.verbosity >= 2):
                 if (len(fixedRenameList) == 1):
@@ -979,8 +968,6 @@ class Bitrot(object):
             
             # From hashes[new_hash] or found.pop() 
             except (KeyError,IndexError):
-                print("trying to insert")
-                print(normalize_path(new_path))
                 cur.execute(
                     'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
                     (normalize_path(new_path), new_mtime, new_hash, ts()),
@@ -1080,7 +1067,7 @@ def update_sha512_integrity(verbosity=1, log=1):
     if new_sha512 != old_sha512:
         if verbosity:
             printAndOrLog('Updating bitrot.sha512... ',log)
-            sys.stdout.flush()
+            #sys.stdout.flush()
         try:
             with open(sha512_path, 'wb') as f:
                 f.write(new_sha512)
