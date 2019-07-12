@@ -109,7 +109,7 @@ def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
         printAndOrLog('Email sending error: {}'.format(err))
 
 
-def writeToSFV(stringToWrite="", sfv=""):
+def writeToSFV(stringToWrite="", sfv="",log=1):
     if (sfv == "MD5"):
         sfv_path = get_path(SOURCE_DIR_PATH,ext=b'md5')
     elif (sfv == "SFV"):
@@ -119,7 +119,7 @@ def writeToSFV(stringToWrite="", sfv=""):
             sfvFile.write(stringToWrite)
             sfvFile.close()
     except Exception as err:
-        print("Could not open checksum file: \'{}\'. Received error: {}".format(sfv_path, err))
+        printAndOrLog("Could not open checksum file: \'{}\'. Received error: {}".format(sfv_path, err),log)
 
 def hash(path, chunk_size,algorithm="",log=1,sfv=""):
     if (algorithm == "MD5"):
@@ -152,7 +152,7 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
         strippedPathString = str(pathStripper(path,sfv))
         if (sfv == "MD5" and algorithm.upper() == "MD5"):
             sfvDigest = digest.hexdigest()
-            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,strippedPathString),sfv=sfv) 
+            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,strippedPathString),sfv=sfv,log=log) 
         elif (sfv == "MD5"):
             sfvDigest = hashlib.md5()
             try:
@@ -164,7 +164,7 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
                     f2.close
             except Exception as err:
                 printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
-            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv) 
+            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv,log=log) 
         elif (sfv == "SFV"):
             try:
                 with open(path, 'rb') as f2:
@@ -184,8 +184,8 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
                         d2 = f2.read(chunk_size)
                         f2.close()
             except Exception as err:
-                printAndOrLog("Could not open SFV file: \'{}\'. Received error: {}".format(path, err),log)
-            writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
+                printAndOrLog("Could not open SFV file: \'{}\'. Received error: {}".format(path, err),log=log)
+            writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv,log=log) 
 
     return digest.hexdigest()
 
@@ -618,7 +618,7 @@ class Bitrot(object):
                 delta2= a - c
                 if (delta.days >= self.recent or delta2.days >= self.recent):
                     tooOldList.append(p)
-                    missing_paths.discard(p_uni)
+                    missing_paths.discard(normalize_path(p_uni.decode(FSENCODING)))
                     total_size -= st.st_size
                     continue
 
@@ -663,7 +663,8 @@ class Bitrot(object):
                 
 
 
-            missing_paths.discard(p_uni)
+            missing_paths.discard(normalize_path(p_uni.decode(FSENCODING)))
+
             try:
                 new_hash = hash(p, self.chunk_size,self.algorithm,log=self.log,sfv=self.sfv)
             except (IOError, OSError) as e:
@@ -672,22 +673,36 @@ class Bitrot(object):
                             #p, errno.errorcode[e.args[0]]))
                             p.encode(FSENCODING), errno.errorcode[e.args[0]]),self.log)
                 continue
-
             cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
-                        'path=?', (p_uni,))
+                        'path=?', (normalize_path(p_uni.decode(FSENCODING)),))
             row = cur.fetchone()
             if not row:
                 stored_path = self.handle_unknown_path(
-                    cur, p_uni, new_mtime, new_hash, paths, hashes
+                    cur, normalize_path(p_uni.decode(FSENCODING)), new_mtime, new_hash, paths, hashes
                 )
                 self.maybe_commit(conn)
-                if p_uni == stored_path:
+
+                if normalize_path(p_uni.decode(FSENCODING)) == normalize_path(stored_path):
+                    # print("=========")
+                    # print(normalize_path(p_uni.decode(FSENCODING)))
+                    # print("==")
+                    # print(normalize_path(stored_path))
                     new_paths.append(p)
                 else:
-                    renamed_paths.append((stored_path.decode(FSENCODING), p))
-                    missing_paths.discard(stored_path)
+                    # renamed_paths.append((stored_path.decode(FSENCODING), p))
+                    # print("-----------")
+                    # print(normalize_path(p_uni.decode(FSENCODING)))
+                    # print("!=")
+                    # print(normalize_path(stored_path))
+                    renamed_paths.append((stored_path, p))
+                    missing_paths.discard(stored_path.encode(FSENCODING))
+                    # print("discarding")
+                    # print(stored_path.encode(FSENCODING))
                 continue
             else:
+                # print("++++")
+                # print(normalize_path(p_uni.decode(FSENCODING)))
+                # print("found in paths")
                 existing_paths.append(p)
 
             stored_mtime, stored_hash, stored_ts = row
@@ -695,7 +710,7 @@ class Bitrot(object):
                 updated_paths.append(p)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
                             'WHERE path=?',
-                            (new_mtime, new_hash, ts(), p_uni))
+                            (new_mtime, new_hash, ts(), normalize_path(p_uni.decode(FSENCODING))))
                 self.maybe_commit(conn)
                 continue
             if stored_hash != new_hash:
@@ -916,7 +931,6 @@ class Bitrot(object):
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
                    printAndOrLog('{}'.format(path.decode(FSENCODING),log))
-
         if fixedRenameList:
             if (self.fix == 4) or (self.fix == 6) or (self.verbosity >= 2):
                 if (len(fixedRenameList) == 1):
@@ -958,24 +972,25 @@ class Bitrot(object):
                 # update the path in the database
                 cur.execute(
                     'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
-                    (new_mtime, new_path, ts(), renamed),
+                    (new_mtime, normalize_path(new_path), ts(), normalize_path(renamed)),
                 )
 
                 return renamed
             
             # From hashes[new_hash] or found.pop() 
             except (KeyError,IndexError):
+                print("trying to insert")
+                print(normalize_path(new_path))
                 cur.execute(
                     'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
-                    (new_path, new_mtime, new_hash, ts()),
+                    (normalize_path(new_path), new_mtime, new_hash, ts()),
                 )
-                return new_path
+                return normalize_path(new_path)
 
 def get_path(directory=b'.', ext=b'db'):
     """Compose the path to the selected bitrot file."""
     directory = os.fsencode(directory)
     ext = os.fsencode(ext)
-    #print("directory: {}.bitrot{}".format(directory,ext))
     return os.path.join(directory, b'.bitrot.' + ext)
 
 def stable_sum(bitrot_db=None):
