@@ -78,8 +78,8 @@ def printAndOrLog(stringToProcess,log=True):
 
 def writeToLog(stringToWrite=""):
     log_path = get_path(SOURCE_DIR_PATH,ext=b'log')
-    # stringToWrite = cleanString(stringToWrite)
-    stringToWrite = stringToWrite
+    stringToWrite = cleanString(stringToWrite)
+    #stringToWrite = stringToWrite
     try:
         with open(log_path, 'a') as logFile:
             logFile.write(stringToWrite)
