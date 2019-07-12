@@ -374,6 +374,7 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
     \'follow_links\' is False (the default).  All entries present in \'expected\'
     must be files (can't be directories or symlinks).
     """
+
     paths = set()
     total_size = 0
     ignoredList = []
@@ -472,10 +473,11 @@ class Bitrot(object):
 
         bitrot_sha512 = get_path(SOURCE_DIR_PATH,ext=b'sha512')
         bitrot_log = get_path(SOURCE_DIR_PATH,ext=b'log')
-        bitrot_db = get_path(SOURCE_DIR_PATH,'db')
+        bitrot_db = get_path(SOURCE_DIR_PATH,b'db')
         bitrot_sfv = get_path(SOURCE_DIR_PATH,ext=b'sfv')
         bitrot_md5 = get_path(SOURCE_DIR_PATH,ext=b'md5')
         progressCounter=0
+
 
         #bitrot_db = os.path.basename(get_path())
         #bitrot_sha512 = os.path.basename(get_path(ext=b'sha512'))
@@ -1135,7 +1137,7 @@ def run_from_command_line():
              'the LANG environment variables.')
     parser.add_argument(
         '-i', '--include-list', default='',
-        help='only read the files listed in this file (use - for stdin).')
+        help='only read the files listed in this file.')
         # .\Directory\1.hi
     parser.add_argument(
         '-t', '--test', default=0,
@@ -1286,11 +1288,7 @@ def run_from_command_line():
             printAndOrLog("Invalid Destination directory: \'{}\'. Using current directory. Received error: {}".format(args.destination, err),args.log) 
 
     include_list = []
-    if args.include_list == '-':
-        if verbosity:
-            printAndOrLog('Using stdin for file list.',args.log) 
-        include_list = sys.stdin
-    elif args.include_list:
+    if args.include_list:
         if verbosity:
             printAndOrLog('Opening file inclusion list at \'{}\'.'.format(args.include_list),args.log)
         try:
