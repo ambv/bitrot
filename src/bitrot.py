@@ -398,7 +398,6 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                 #p_uni = p.decode(FSENCODING)
                 p_uni = p.encode(FSENCODING)
 
-
             except UnicodeDecodeError:
                 binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
                 warnings.append(p)
@@ -429,7 +428,7 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                                 for wildcard in included]                
                 if not stat.S_ISREG(st.st_mode) or any(exclude_this) or any([fnmatch(p.encode(FSENCODING), exc) for exc in ignored]) or (included and not any([fnmatch(p.encode(FSENCODING), exc) for exc in included]) and not any(include_this)):
                 #if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
-                    ignoredList.append(p.encode(FSENCODING))
+                    ignoredList.append(p)
                     #if verbosity > 2:
                         #print('Ignoring file: {}'.format(p))
                         #print('Ignoring file: {}'.format(p.decode(FSENCODING)))
@@ -575,7 +574,7 @@ class Bitrot(object):
                     # permissions. We'll just skip it for now.
                     warnings.append(p)
                     #writeToLog('\nWarning: \'{}\' is currently unavailable for reading: {}'.format(p_uni, ex))
-                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p_uni, ex),self.log)
+                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p, ex),self.log)
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
@@ -599,17 +598,17 @@ class Bitrot(object):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid access and modification date. Try running with -f to fix.'.format(p.encode(FSENCODING)),self.log)
+                    printAndOrLog('Warning: \'{}\' has an invalid access and modification date. Try running with -f to fix.'.format(p),self.log)
             elif not (new_mtime):
                 new_mtime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid modification date. Try running with -f to fix.'.format(p.encode(FSENCODING)),self.log)
+                    printAndOrLog('Warning: \'{}\' has an invalid modification date. Try running with -f to fix.'.format(p),self.log)
             elif not (new_atime):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid access date. Try running with -f to fix.'.format(p.encode(FSENCODING)),self.log)
+                    printAndOrLog('Warning: \'{}\' has an invalid access date. Try running with -f to fix.'.format(p),self.log)
 
             b = datetime.datetime.fromtimestamp(new_mtime)
             c = datetime.datetime.fromtimestamp(new_atime)
@@ -618,7 +617,7 @@ class Bitrot(object):
                 delta = a - b
                 delta2= a - c
                 if (delta.days >= self.recent or delta2.days >= self.recent):
-                    tooOldList.append(p_uni)
+                    tooOldList.append(p)
                     missing_paths.discard(p_uni)
                     total_size -= st.st_size
                     continue
@@ -655,7 +654,7 @@ class Bitrot(object):
                     if (self.fix  == 1) or (self.fix  == 5) or (self.fix  == 2) or (self.fix  == 6):
                             fixedPropertiesList.append([])
                             fixedPropertiesList.append([])
-                            fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
+                            fixedPropertiesList[fixedPropertiesCounter].append(p)
                             fixedPropertiesCounter += 1
 
             current_size += st.st_size
@@ -683,17 +682,17 @@ class Bitrot(object):
                 )
                 self.maybe_commit(conn)
                 if p_uni == stored_path:
-                    new_paths.append(p_uni)
+                    new_paths.append(p)
                 else:
-                    renamed_paths.append((stored_path, p_uni))
+                    renamed_paths.append((stored_path.decode(FSENCODING), p))
                     missing_paths.discard(stored_path)
                 continue
             else:
-                existing_paths.append(p_uni)
+                existing_paths.append(p)
 
             stored_mtime, stored_hash, stored_ts = row
             if (int(stored_mtime) != new_mtime) and not (self.test == 2):
-                updated_paths.append(p_uni)
+                updated_paths.append(p)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
                             'WHERE path=?',
                             (new_mtime, new_hash, ts(), p_uni))
@@ -916,7 +915,7 @@ class Bitrot(object):
 
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
-                   printAndOrLog('{}'.format(path),log)
+                   printAndOrLog('{}'.format(path.decode(FSENCODING),log))
 
         if fixedRenameList:
             if (self.fix == 4) or (self.fix == 6) or (self.verbosity >= 2):
