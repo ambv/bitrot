@@ -432,7 +432,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
     return fixedRenameList, fixedRenameCounter
 
 def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=(), 
-                        verbosity=1, follow_links=False, log=1, fix=0, warnings = ()):
+                        verbosity=1, follow_links=False, log=1, fix=0, normalize = 0, warnings = ()):
     """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
 
     Returns a tuple with a list with existing files in \'directory\' and their
@@ -495,64 +495,71 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                             #writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
                     continue
                 else:
-                    oldMatch = ""
-                    for filePath in paths:
-                        if normalize_path(p) == normalize_path(filePath):
-                            oldMatch = filePath
-                            break
-                    if oldMatch != "":
-                        oldFile = os.stat(oldMatch)
-                        new_mtime = int(st.st_mtime)
-                        old_mtime = int(oldFile.st_mtime)
-                        new_atime = int(st.st_atime)
-                        old_atime = int(oldFile.st_atime)
-                        now_date = datetime.datetime.now()
-                        if not new_mtime or not new_atime:
-                            nowTime = time.mktime(now_date.timetuple())
-                        if not old_mtime or not old_atime:
-                            nowTime = time.mktime(now_date.timetuple())
-                        if not new_mtime and not new_atime:
-                            new_mtime = int(nowTime)
-                            new_atime = int(nowTime)
-                        elif not (new_mtime):
-                            new_mtime = int(nowTime)
-                        elif not (new_atime):
-                            new_atime = int(nowTime)
-                        if not old_mtime and not old_atime:
-                            old_mtime = int(nowTime)
-                            old_atime = int(nowTime)
-                        elif not (old_mtime):
-                            old_mtime = int(nowTime)
-                        elif not (old_atime):
-                            old_atime = int(nowTime)
+                    if (normalize):
+                        oldMatch = ""
+                        for filePath in paths:
+                            if normalize_path(p) == normalize_path(filePath):
+                                oldMatch = filePath
+                                break
+                        if oldMatch != "":
+                            oldFile = os.stat(oldMatch)
+                            new_mtime = int(st.st_mtime)
+                            old_mtime = int(oldFile.st_mtime)
+                            new_atime = int(st.st_atime)
+                            old_atime = int(oldFile.st_atime)
+                            now_date = datetime.datetime.now()
+                            if not new_mtime or not new_atime:
+                                nowTime = time.mktime(now_date.timetuple())
+                            if not old_mtime or not old_atime:
+                                nowTime = time.mktime(now_date.timetuple())
+                            if not new_mtime and not new_atime:
+                                new_mtime = int(nowTime)
+                                new_atime = int(nowTime)
+                            elif not (new_mtime):
+                                new_mtime = int(nowTime)
+                            elif not (new_atime):
+                                new_atime = int(nowTime)
+                            if not old_mtime and not old_atime:
+                                old_mtime = int(nowTime)
+                                old_atime = int(nowTime)
+                            elif not (old_mtime):
+                                old_mtime = int(nowTime)
+                            elif not (old_atime):
+                                old_atime = int(nowTime)
 
-                        new_mtime_date = datetime.datetime.fromtimestamp(new_mtime)
-                        new_atime_date = datetime.datetime.fromtimestamp(new_atime)
-                        old_mtime_date = datetime.datetime.fromtimestamp(old_mtime)
-                        old_atime_date = datetime.datetime.fromtimestamp(old_atime)
+                            new_mtime_date = datetime.datetime.fromtimestamp(new_mtime)
+                            new_atime_date = datetime.datetime.fromtimestamp(new_atime)
+                            old_mtime_date = datetime.datetime.fromtimestamp(old_mtime)
+                            old_atime_date = datetime.datetime.fromtimestamp(old_atime)
 
-                        delta_new_mtime_date = now_date - new_mtime_date
-                        delta_new_atime_date = now_date - new_atime_date
+                            delta_new_mtime_date = now_date - new_mtime_date
+                            delta_new_atime_date = now_date - new_atime_date
 
-                        delta_old_mtime_date = now_date - old_mtime_date
-                        delta_old_atime_date = now_date - old_atime_date
+                            delta_old_mtime_date = now_date - old_mtime_date
+                            delta_old_atime_date = now_date - old_atime_date
 
-                        if delta_new_mtime_date < delta_old_mtime_date:
-                            paths.add(p)
-                            paths.discard(filePath)
-                            if verbosity:
-                                progressCounter+=1
-                                bar.update(progressCounter)
-                            total_size += st.st_size
-                        elif delta_new_atime_date < delta_old_atime_date:
-                            paths.add(p)
-                            paths.discard(filePath)
-                            if verbosity:
-                                progressCounter+=1
-                                bar.update(progressCounter)
-                            total_size += st.st_size
+                            if delta_new_mtime_date < delta_old_mtime_date:
+                                paths.add(p)
+                                paths.discard(filePath)
+                                if verbosity:
+                                    progressCounter+=1
+                                    bar.update(progressCounter)
+                                total_size += st.st_size
+                            elif delta_new_atime_date < delta_old_atime_date:
+                                paths.add(p)
+                                paths.discard(filePath)
+                                if verbosity:
+                                    progressCounter+=1
+                                    bar.update(progressCounter)
+                                total_size += st.st_size
+                            else:
+                                pass
                         else:
-                            pass
+                            paths.add(p)
+                            if verbosity:
+                                progressCounter+=1
+                                bar.update(progressCounter)
+                            total_size += st.st_size
                     else:
                         paths.add(p)
                         if verbosity:
@@ -569,7 +576,7 @@ class BitrotException(Exception):
 class Bitrot(object):
     def __init__(
         self, verbosity=1, email = False, log = False, test=0, recent = 0, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], algorithm="", sfv="MD5", fix=0
+        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], algorithm="", sfv="MD5", fix=0, normalize = False
     ):
         self.verbosity = verbosity
         self.test = test
@@ -587,6 +594,7 @@ class Bitrot(object):
         self.algorithm = algorithm
         self.sfv = sfv
         self.fix = fix
+        self.normalize = normalize
 
     def maybe_commit(self, conn):
         if time.time() < self._last_commit_ts + self.commit_interval:
@@ -663,6 +671,7 @@ class Bitrot(object):
             verbosity=self.verbosity,
             log=self.log,
             fix=self.fix,
+            normalize=self.normalize,
             warnings=warnings,
 
         )
@@ -1292,6 +1301,9 @@ def run_from_command_line():
         'Level 4: List missing, fixed, new, renamed, updated entries, and ignored files.\n'
         'Level 5: List missing, fixed, new, renamed, updated entries, ignored files, and existing files\n.')
     parser.add_argument(
+        '-n', '--normalize', action='store_true',
+        help='Only allow one unique normalized file into the DB at a time.')
+    parser.add_argument(
         '-e', '--email', default=1,
         help='email file integrity errors')
     parser.add_argument(
@@ -1500,7 +1512,11 @@ def run_from_command_line():
         except Exception as err:
             printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
             recent = 0
-            pass       
+            pass    
+    normalize = False
+    if (args.normalize):
+        printAndOrLog("Only allowing one similarly named normalized file into the database.",args.log)
+        normalize = True
 
     fix = 0
     if (args.fix):
@@ -1550,6 +1566,7 @@ def run_from_command_line():
         exclude_list = exclude_list,
         sfv = sfv,
         fix = fix,
+        normalize = normalize,
     )
     if args.fsencoding:
         FSENCODING = args.fsencoding
