@@ -116,7 +116,7 @@ def writeToSFV(stringToWrite="", sfv="",log=1):
         sfv_path = get_path(SOURCE_DIR_PATH,ext=b'sfv')
     try:
         with open(sfv_path, 'a') as sfvFile:
-            sfvFile.write(stringToWrite)
+            sfvFile.write(cleanString(stringToWrite))
             sfvFile.close()
     except Exception as err:
         printAndOrLog("Could not open checksum file: \'{}\'. Received error: {}".format(sfv_path, err),log)
