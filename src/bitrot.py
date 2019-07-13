@@ -721,7 +721,6 @@ class Bitrot(object):
                 format_custom_text.update_mapping(f=self.progressFormat(progressCounter,len(paths),p_uni))
                 
 
-
             missing_paths.discard(normalize_path(p_uni.decode(FSENCODING)))
 
             try:
@@ -735,6 +734,7 @@ class Bitrot(object):
             cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
                         'path=?', (normalize_path(p_uni.decode(FSENCODING)),))
             row = cur.fetchone()
+
             if not row:
                 stored_path = self.handle_unknown_path(
                     cur, normalize_path(p_uni.decode(FSENCODING)), new_mtime, new_hash, paths, hashes
@@ -758,7 +758,15 @@ class Bitrot(object):
                             (new_mtime, new_hash, ts(), normalize_path(p_uni.decode(FSENCODING))))
                 self.maybe_commit(conn)
                 continue
+            print("////////////////////")
+            print(stored_hash)
+            print(new_hash)
+            if stored_hash == new_hash:
+                print("----------------------------------------")
             if stored_hash != new_hash:
+                print("////////////////////")
+                print(stored_hash)
+                print(new_hash)
                 errors.append(p)
                 emails.append([])
                 emails.append([])
