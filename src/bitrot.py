@@ -758,15 +758,8 @@ class Bitrot(object):
                             (new_mtime, new_hash, ts(), normalize_path(p_uni.decode(FSENCODING))))
                 self.maybe_commit(conn)
                 continue
-            print("////////////////////")
-            print(stored_hash)
-            print(new_hash)
-            if stored_hash == new_hash:
-                print("----------------------------------------")
+
             if stored_hash != new_hash:
-                print("////////////////////")
-                print(stored_hash)
-                print(new_hash)
                 errors.append(p)
                 emails.append([])
                 emails.append([])
