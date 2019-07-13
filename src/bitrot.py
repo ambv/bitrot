@@ -122,18 +122,87 @@ def writeToSFV(stringToWrite="", sfv="",log=1):
         printAndOrLog("Could not open checksum file: \'{}\'. Received error: {}".format(sfv_path, err),log)
 
 def hash(path, chunk_size,algorithm="",log=1,sfv=""):
+#0 byte files:
+# md5 d41d8cd98f00b204e9800998ecf8427e
+# LM  aad3b435b51404eeaad3b435b51404ee
+# NTLM    31d6cfe0d16ae931b73c59d7e0c089c0
+# sha1    da39a3ee5e6b4b0d3255bfef95601890afd80709
+# sha256  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+# sha384  38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b
+# sha512  cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e
+# md5(md5())  74be16979710d4c4e7c6647856088456
+# MySQL4.1+   be1bdec0aa74b4dcb079943e70528096cca985f8
+# ripemd160   9c1185a5c5e9fc54612808977ee8f548b2258d31
+# whirlpool   19fa61d75522a4669b44e39c1d2e1726c530232130d407f89afee0964997f7a73e83be698b288febcf88e3e03c4f0757ea8964e59b63d93708b138cc42a66eb3
+# adler32 00000001
+# crc32   00000000
+# crc32b  00000000
+# fnv1a32 811c9dc5
+# fnv1a64 cbf29ce484222325
+# fnv132  811c9dc5
+# fnv164  cbf29ce484222325
+# gost    ce85b99cc46752fffee35cab9a7b0278abb4c2d2055cff685af4912c49490f8d
+# gost-crypto 981e5f3ca30c841487830f84fb433e13ac1101569b9c13584ac483234cd656c0
+# haval128,3  c68f39913f901f3ddf44c707357a7d70
+# haval128,4  ee6bbf4d6a46a679b3a856c88538bb98
+# haval128,5  184b8482a0c050dca54b59c7f05bf5dd
+# haval160,3  d353c3ae22a25401d257643836d7231a9a95f953
+# haval160,4  1d33aae1be4146dbaaca0b6e70d7a11f10801525
+# haval160,5  255158cfc1eed1a7be7c55ddd64d9790415b933b
+# haval192,3  e9c48d7903eaf2a91c5b350151efcb175c0fc82de2289a4e
+# haval192,4  4a8372945afa55c7dead800311272523ca19d42ea47b72da
+# haval192,5  4839d0626f95935e17ee2fc4509387bbe2cc46cb382ffe85
+# haval224,3  c5aae9d47bffcaaf84a8c6e7ccacd60a0dd1932be7b1a192b9214b6d
+# haval224,4  3e56243275b3b81561750550e36fcd676ad2f5dd9e15f2e89e6ed78e
+# haval224,5  4a0513c032754f5582a758d35917ac9adf3854219b39e3ac77d1837e
+# haval256,3  4f6938531f0bc8991f62da7bbd6f7de3fad44562b8c6f4ebf146d5b4e46f7c17
+# haval256,4  c92b2e23091e80e375dadce26982482d197b1a2521be82da819f8ca2c579b99b
+# haval256,5  be417bb4dd5cfb76c7126f4f8eeb1553a449039307b1a3cd451dbfdc0fbbe330
+# joaat   00000000
+# md2 8350e5a3e24c153df2275c9f80692773
+# md4 31d6cfe0d16ae931b73c59d7e0c089c0
+# ripemd128   cdf26213a150dc3ecb610f18f6b38b46
+# ripemd256   02ba4c4e5f8ecd1877fc52d64d30e37a2d9774fb1e5d026380ae0168e3c5522d
+# ripemd320   22d65d5661536cdc75c1fdf5c6de7b41b9f27325ebc61e8557177d705a0ec880151c3a32a00899b8
+# sha224  d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f
+# snefru  8617f366566a011837f4fb4ba5bedea2b892f3ed8b894023d16ae344b2be5881
+# snefru256   8617f366566a011837f4fb4ba5bedea2b892f3ed8b894023d16ae344b2be5881
+# tiger128,3  3293ac630c13f0245f92bbb1766e1616
+# tiger128,4  24cc78a7f6ff3546e7984e59695ca13d
+# tiger160,3  3293ac630c13f0245f92bbb1766e16167a4e5849
+# tiger160,4  24cc78a7f6ff3546e7984e59695ca13d804e0b68
+# tiger192,3  3293ac630c13f0245f92bbb1766e16167a4e58492dde73f3
+# tiger192,4  24cc78a7f6ff3546e7984e59695ca13d804e0b686e255194
     if (algorithm == "MD5"):
-        digest=hashlib.md5()          
+        if(os.stat(path).st_size) == 0:
+            return "d41d8cd98f00b204e9800998ecf8427e"
+        else:
+            digest=hashlib.md5()          
     elif (algorithm == "SHA1"):
-        digest=hashlib.sha1()
+        if(os.stat(path).st_size) == 0:
+            return "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+        else:
+            digest=hashlib.sha1()
     elif (algorithm == "SHA224"):
-        digest=hashlib.sha224()
+        if(os.stat(path).st_size) == 0:
+            return "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"
+        else:
+            digest=hashlib.sha224()
     elif (algorithm == "SHA384"):
-        digest=hashlib.sha384()
+        if(os.stat(path).st_size) == 0:
+            return "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b"
+        else:
+            digest=hashlib.sha384()
     elif (algorithm == "SHA256"):
-        digest=hashlib.sha256()
+        if(os.stat(path).st_size) == 0:
+            return "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        else:
+            digest=hashlib.sha256()
     elif (algorithm == "SHA512"):
-        digest=hashlib.sha512() 
+        if(os.stat(path).st_size) == 0:
+            return "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+        else:
+            digest=hashlib.sha512() 
     else:
         #You should never get here
         printAndOrLog('Invalid hash function detected.',log)
@@ -185,7 +254,6 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
             except Exception as err:
                 printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log=log)
             writeToSFV(stringToWrite="{} {}\n".format(path, "%08X" % crcvalue),sfv=sfv,log=log) 
-
     return digest.hexdigest()
 
 def is_int(val):
@@ -382,7 +450,7 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
     if verbosity:
         print("Mapping all files... Please wait...")
         bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
-    for path, _, files in os.walk(directory):
+    for path, _, files in os.walk("."):
         for f in files:
             p = os.path.join(path, f)
             try:
@@ -674,26 +742,12 @@ class Bitrot(object):
                 self.maybe_commit(conn)
 
                 if normalize_path(p_uni.decode(FSENCODING)) == normalize_path(stored_path):
-                    # print("=========")
-                    # print(normalize_path(p_uni.decode(FSENCODING)))
-                    # print("==")
-                    # print(normalize_path(stored_path))
                     new_paths.append(p)
                 else:
-                    # renamed_paths.append((stored_path.decode(FSENCODING), p))
-                    # print("-----------")
-                    # print(normalize_path(p_uni.decode(FSENCODING)))
-                    # print("!=")
-                    # print(normalize_path(stored_path))
                     renamed_paths.append((stored_path, p))
                     missing_paths.discard(stored_path.encode(FSENCODING))
-                    # print("discarding")
-                    # print(stored_path.encode(FSENCODING))
                 continue
             else:
-                # print("++++")
-                # print(normalize_path(p_uni.decode(FSENCODING)))
-                # print("found in paths")
                 existing_paths.append(p)
 
             stored_mtime, stored_hash, stored_ts = row
@@ -956,7 +1010,6 @@ class Bitrot(object):
             Returns `new_path` if the entry was indeed new or the `stored_path` (e.g.
             outdated path) if there was a rename.
             """
-
             try: # if the path isn't in the database
                 found = [path for path in hashes[new_hash] if path not in paths]
                 renamed = found.pop()
@@ -1203,6 +1256,16 @@ def run_from_command_line():
         help="Root of destination folder. Default is current directory.")
 
     args = parser.parse_args()
+
+    try:
+        if not args.source:
+            SOURCE_DIR = '.'
+        else:
+            os.chdir(args.source)
+            SOURCE_DIR_PATH = args.source
+    except Exception as err:
+            SOURCE_DIR = '.'
+
     verbosity = 1
     if (args.verbose):
         try:
@@ -1232,18 +1295,15 @@ def run_from_command_line():
 
     try:
         if not args.source:
-            SOURCE_DIR = '.'
             if verbosity:
                 printAndOrLog('Using current directory for file list.',args.log)
         else:
-            os.chdir(args.source)
-            SOURCE_DIR_PATH = args.source
             if verbosity:
                 printAndOrLog('Source directory \'{}\'.'.format(args.source),args.log)
     except Exception as err:
-            SOURCE_DIR = '.'
             if verbosity:
                 printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log)
+
     if args.sum:
         try:
             print("Hash of {} is \n{}".format(SOURCE_DIR_PATH,stable_sum()))
