@@ -90,13 +90,13 @@ def writeToLog(stringToWrite=""):
 def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
-    FROMADDR = 'author@gmail.com'
-    TOADDR  = 'recipient@gmail.com'
+    FROMADDR = 'DoesntMatter'
+    TOADDR  = 'REDACTED@gmail.com'
     msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
-    USERNAME = 'authorUsername'
-    PASSWORD = 'authorPassword'
-     
+    msg['From'] = email.utils.formataddr(('REDACTED', 'DoesntMatter'))
+    USERNAME = 'REDACTED'
+    PASSWORD = 'REDACTED'
+
     try:
         msg['Subject'] = subject
         # The actual mail send
@@ -536,10 +536,6 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
 
                         delta_old_mtime_date = now_date - old_mtime_date
                         delta_old_atime_date = now_date - old_atime_date
-                        print(delta_new_mtime_date)
-                        print(delta_old_mtime_date)
-                        print(delta_new_atime_date)
-                        print(delta_old_atime_date)
 
                         if delta_new_mtime_date < delta_old_mtime_date:
                             paths.add(p)
