@@ -494,11 +494,75 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                             #writeToLog("\nIgnoring file: {}".format(p))
                             #writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
                     continue
-                paths.add(p)
-                if verbosity:
-                    progressCounter+=1
-                    bar.update(progressCounter)
-                total_size += st.st_size
+                else:
+                    oldMatch = ""
+                    for filePath in paths:
+                        if normalize_path(p) == normalize_path(filePath):
+                            oldMatch = filePath
+                            break
+                    if oldMatch != "":
+                        oldFile = os.stat(oldMatch)
+                        new_mtime = int(st.st_mtime)
+                        old_mtime = int(oldFile.st_mtime)
+                        new_atime = int(st.st_atime)
+                        old_atime = int(oldFile.st_atime)
+                        now_date = datetime.datetime.now()
+                        if not new_mtime or not new_atime:
+                            nowTime = time.mktime(now_date.timetuple())
+                        if not old_mtime or not old_atime:
+                            nowTime = time.mktime(now_date.timetuple())
+                        if not new_mtime and not new_atime:
+                            new_mtime = int(nowTime)
+                            new_atime = int(nowTime)
+                        elif not (new_mtime):
+                            new_mtime = int(nowTime)
+                        elif not (new_atime):
+                            new_atime = int(nowTime)
+                        if not old_mtime and not old_atime:
+                            old_mtime = int(nowTime)
+                            old_atime = int(nowTime)
+                        elif not (old_mtime):
+                            old_mtime = int(nowTime)
+                        elif not (old_atime):
+                            old_atime = int(nowTime)
+
+                        new_mtime_date = datetime.datetime.fromtimestamp(new_mtime)
+                        new_atime_date = datetime.datetime.fromtimestamp(new_atime)
+                        old_mtime_date = datetime.datetime.fromtimestamp(old_mtime)
+                        old_atime_date = datetime.datetime.fromtimestamp(old_atime)
+
+                        delta_new_mtime_date = now_date - new_mtime_date
+                        delta_new_atime_date = now_date - new_atime_date
+
+                        delta_old_mtime_date = now_date - old_mtime_date
+                        delta_old_atime_date = now_date - old_atime_date
+                        print(delta_new_mtime_date)
+                        print(delta_old_mtime_date)
+                        print(delta_new_atime_date)
+                        print(delta_old_atime_date)
+
+                        if delta_new_mtime_date < delta_old_mtime_date:
+                            paths.add(p)
+                            paths.discard(filePath)
+                            if verbosity:
+                                progressCounter+=1
+                                bar.update(progressCounter)
+                            total_size += st.st_size
+                        elif delta_new_atime_date < delta_old_atime_date:
+                            paths.add(p)
+                            paths.discard(filePath)
+                            if verbosity:
+                                progressCounter+=1
+                                bar.update(progressCounter)
+                            total_size += st.st_size
+                        else:
+                            pass
+                    else:
+                        paths.add(p)
+                        if verbosity:
+                            progressCounter+=1
+                            bar.update(progressCounter)
+                        total_size += st.st_size
     if verbosity:
         bar.finish()
     return paths, total_size, ignoredList
