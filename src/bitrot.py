@@ -50,7 +50,7 @@ import zlib
 import re
 import unicodedata
 
-DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
+DEFAULT_CHUNK_SIZE = 9999999  # used to be 16384 - block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 2
 VERSION = (0, 9, 4)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
@@ -63,6 +63,26 @@ DESTINATION_DIR=SOURCE_DIR
 if sys.version[0] == '2':
     str = type(u'text')
     # use \'bytes\' for bytestrings
+
+def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
+    msg = MIMEText(stringToSend)
+
+    FROMADDR = 'DoesntMatter'
+    TOADDR  = 'REDACTED@gmail.com'
+    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
+    msg['From'] = email.utils.formataddr(('REDACTED', 'DoesntMatter'))
+    USERNAME = 'REDACTED'
+    PASSWORD = 'REDACTED'
+    try:
+        msg['Subject'] = subject
+        # The actual mail send
+        server = smtplib.SMTP('smtp.gmail.com:587')
+        server.starttls()
+        server.login(USERNAME,PASSWORD)
+        server.sendmail(FROMADDR, TOADDR, msg.as_string())
+        server.quit()
+    except Exception as err:
+        printAndOrLog('Email sending error: {}'.format(err))
 
 def normalize_path(path):
     if FSENCODING == 'utf-8' or FSENCODING == 'UTF-8':
@@ -86,28 +106,6 @@ def writeToLog(stringToWrite=""):
             logFile.close()
     except Exception as err:
         print("Could not open log: \'{}\'. Received error: {}".format(log_path, err))
-
-def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
-    msg = MIMEText(stringToSend)
-
-    FROMADDR = 'DoesntMatter'
-    TOADDR  = 'REDACTED@gmail.com'
-    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-    msg['From'] = email.utils.formataddr(('REDACTED', 'DoesntMatter'))
-    USERNAME = 'REDACTED'
-    PASSWORD = 'REDACTED'
-
-    try:
-        msg['Subject'] = subject
-        # The actual mail send
-        server = smtplib.SMTP('smtp.gmail.com:587')
-        server.starttls()
-        server.login(USERNAME,PASSWORD)
-        server.sendmail(FROMADDR, TOADDR, msg.as_string())
-        server.quit()
-    except Exception as err:
-        printAndOrLog('Email sending error: {}'.format(err))
-
 
 def writeToSFV(stringToWrite="", sfv="",log=1):
     if (sfv == "MD5"):
@@ -787,8 +785,7 @@ class Bitrot(object):
 
             current_size += st.st_size
             if self.verbosity:
-                format_custom_text.update_mapping(f=self.progressFormat(progressCounter,len(paths),p_uni))
-                
+                format_custom_text.update_mapping(f=self.progressFormat(progressCounter,len(paths),p_uni))              
 
             missing_paths.discard(normalize_path(p_uni.decode(FSENCODING)))
 
