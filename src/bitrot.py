@@ -81,9 +81,10 @@ def writeToLog(stringToWrite=""):
     # stringToWrite = cleanString(stringToWrite)
     stringToWrite = stringToWrite
     try:
-        with open(log_path, 'a') as logFile:
-            logFile.write(stringToWrite)
-            logFile.close()
+        if os.path.exists(log_path):
+            with open(log_path, 'a') as logFile:
+                logFile.write(stringToWrite)
+                logFile.close()
     except Exception as err:
         print("Could not open log: \'{}\'. Received error: {}".format(log_path, err))
 
@@ -115,9 +116,10 @@ def writeToSFV(stringToWrite="", sfv=""):
     elif (sfv == "SFV"):
         sfv_path = get_path(SOURCE_DIR_PATH,ext=b'sfv')
     try:
-        with open(sfv_path, 'a') as sfvFile:
-            sfvFile.write(stringToWrite)
-            sfvFile.close()
+        if os.path.exists(sfv_path):
+            with open(sfv_path, 'a') as sfvFile:
+                sfvFile.write(stringToWrite)
+                sfvFile.close()
     except Exception as err:
         print("Could not open checksum file: \'{}\'. Received error: {}".format(sfv_path, err))
 
@@ -139,12 +141,13 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
         printAndOrLog('Invalid hash function detected.',log)
         raise Exception('Invalid hash function detected.')
     try:
-        with open(path, 'rb') as f:
-            d = f.read(chunk_size)
-            while d:
-                digest.update(d)
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
                 d = f.read(chunk_size)
-            f.close
+                while d:
+                    digest.update(d)
+                    d = f.read(chunk_size)
+                f.close
     except Exception as err:
         printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
 
@@ -156,33 +159,35 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
         elif (sfv == "MD5"):
             sfvDigest = hashlib.md5()
             try:
-                with open(path, 'rb') as f2:
-                    d2 = f2.read(chunk_size)
-                    while d2:
-                        sfvDigest.update(d2)
+                if os.path.exists(path):
+                    with open(path, 'rb') as f2:
                         d2 = f2.read(chunk_size)
-                    f2.close
+                        while d2:
+                            sfvDigest.update(d2)
+                            d2 = f2.read(chunk_size)
+                        f2.close
             except Exception as err:
                 printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
             writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv) 
         elif (sfv == "SFV"):
             try:
-                with open(path, 'rb') as f2:
-                    d2 = f2.read(chunk_size)
-                    crcvalue = 0
-                    while d2:
-                        #zlib is faster
-                        #import timeit
-                        #print("b:", timeit.timeit("binascii.crc32(data)", setup="import binascii, zlib; data=b'X'*4096", number=100000))
-                        #print("z:", timeit.timeit("zlib.crc32(data)",     setup="import binascii, zlib; data=b'X'*4096", number=100000))
-                        #Result:
-                        #b: 1.0176826480001182
-                        #z: 0.4006126120002591
-                        
-                        crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
-                        #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
+                if os.path.exists(path):
+                    with open(path, 'rb') as f2:
                         d2 = f2.read(chunk_size)
-                        f2.close()
+                        crcvalue = 0
+                        while d2:
+                            #zlib is faster
+                            #import timeit
+                            #print("b:", timeit.timeit("binascii.crc32(data)", setup="import binascii, zlib; data=b'X'*4096", number=100000))
+                            #print("z:", timeit.timeit("zlib.crc32(data)",     setup="import binascii, zlib; data=b'X'*4096", number=100000))
+                            #Result:
+                            #b: 1.0176826480001182
+                            #z: 0.4006126120002591
+                            
+                            crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
+                            #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
+                            d2 = f2.read(chunk_size)
+                            f2.close()
             except Exception as err:
                 printAndOrLog("Could not open SFV file: \'{}\'. Received error: {}".format(path, err),log)
             writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
@@ -276,15 +281,22 @@ def get_sqlite3_cursor(path, copy=False):
         db_copy = tempfile.NamedTemporaryFile(prefix='bitrot_', suffix='.db',
                                               delete=False)
         try:
-            with open(path, 'rb') as db_orig:
-                try:
-                    shutil.copyfileobj(db_orig, db_copy)
-                finally:
-                    db_copy.close()
-                    db_orig.close()
-        except Exception as err:
-            printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(path, err),log)
-            raise
+            if os.path.exists(path):
+                with open(path, 'rb') as db_orig:
+                    try:
+                        shutil.copyfileobj(db_orig, db_copy)
+                    finally:
+                        db_copy.close()
+                        db_orig.close()
+        except IOError as e:
+            if e.errno == errno.EACCES:
+                printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e),log)
+                raise
+        except Exception as e:
+            printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e),log)
+            raise   
+
+
         path = db_copy.name
         atexit.register(os.unlink, path)
     try:
@@ -517,7 +529,6 @@ class Bitrot(object):
         #bitrot_db = os.path.basename(get_path())
         #bitrot_sha512 = os.path.basename(get_path(ext=b'sha512'))
         #bitrot_log = os.path.basename(get_path(ext=b'log'))
-
         try:
             conn = get_sqlite3_cursor(bitrot_db, copy=self.test)
         except ValueError:
@@ -527,6 +538,10 @@ class Bitrot(object):
             )
             if (log):
                 printAndOrLog("No database exists so cannot test. Run the tool once first.",self.log)
+                conn = sqlite3.connect(path)
+        except Exception as err:
+           printAndOrLog("Could not connect to database: \'{}\'. Received error: {}".format(bitrot_db, err))
+           raise
 
         cur = conn.cursor()
         new_paths = []
@@ -1020,33 +1035,50 @@ def stable_sum(bitrot_db=None):
         digest.update(row[0].encode('ascii'))
         row = cur.fetchone()
     return digest.hexdigest()
-
+        # except Exception as err:
+        #    printAndOrLog("Could not connect to database: \'{}\'. Received error: {}".format(bitrot_db, err))
+        #    raise
 def check_sha512_integrity(verbosity=1, log=1):
     sha512_path = get_path(SOURCE_DIR_PATH,ext=b'sha512')
-    if not os.path.exists(sha512_path):
-        return
-
-    bitrot_db = get_path(SOURCE_DIR_PATH,'db')
-    if not os.path.exists(bitrot_db):
-        return
 
     if verbosity:
         printAndOrLog('Checking bitrot.db integrity... ',log)
         sys.stdout.flush()
     try:
-        with open(sha512_path, 'rb') as f:
-            old_sha512 = f.read().strip()
-            f.close()
-    except Exception as err:
-        printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, err),log)
-    
+        if os.path.exists(sha512_path):
+            with open(sha512_path, 'rb') as f:
+                old_sha512 = f.read().strip()
+                f.close()
+    except IOError as e:
+        if e.errno == errno.EACCES:
+            printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
+            raise
+    except Exception as e:
+        printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
+        raise    
+   
+    if not os.path.exists(sha512_path):
+        return
+
+    bitrot_db = get_path(SOURCE_DIR_PATH,'db')
     digest = hashlib.sha512()
+
     try:
-        with open(bitrot_db, 'rb') as f:
-            digest.update(f.read())
-            f.close()
-    except Exception as err:
-        printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(bitrot_db, err),log)
+        if os.path.exists(bitrot_db):
+            with open(bitrot_db, 'rb') as f:
+                digest.update(f.read())
+                f.close()
+    except IOError as e:
+        if e.errno == errno.EACCES:
+            printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e),log)
+            raise
+    except Exception as e:
+        printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e),log)
+        raise   
+
+    if not os.path.exists(bitrot_db):
+        return
+
     new_sha512 = digest.hexdigest().encode('ascii')
     if new_sha512 != old_sha512:
         if len(old_sha512) == 128:
@@ -1076,28 +1108,41 @@ def update_sha512_integrity(verbosity=1, log=1):
             with open(sha512_path, 'rb') as f:
                 old_sha512 = f.read().strip()
                 f.close()
-        except Exception as err:
-            printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, err),log)
+        except IOError as e:
+            if e.errno == errno.EACCES:
+                printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
+                raise
+        except Exception as e:
+            printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
+            raise    
 
     bitrot_db = get_path(SOURCE_DIR_PATH,'db')
     digest = hashlib.sha512()
-    try:
-        with open(bitrot_db, 'rb') as f:
-            digest.update(f.read())
-            f.close()
-    except Exception as err:
-        printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, err),log)
+    if os.path.exists(bitrot_db):
+        try:
+            with open(bitrot_db, 'rb') as f:
+                digest.update(f.read())
+                f.close()
+        except Exception as err:
+            printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, err),log)
     new_sha512 = digest.hexdigest().encode('ascii')
     if new_sha512 != old_sha512:
         if verbosity:
             printAndOrLog('Updating bitrot.sha512... ',log)
             sys.stdout.flush()
-        try:
-            with open(sha512_path, 'wb') as f:
-                f.write(new_sha512)
-                f.close()
-        except Exception as err:
-            printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, err),log)
+        if os.path.exists(sha512_path):
+            try:
+                with open(sha512_path, 'wb') as f:
+                    f.write(new_sha512)
+                    f.close()
+            except IOError as e:
+                if e.errno == errno.EACCES:
+                    printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
+                    raise
+            except Exception as e:
+                printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
+                raise    
+
         if verbosity:
             printAndOrLog('done.',log)
 
