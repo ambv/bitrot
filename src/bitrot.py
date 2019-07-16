@@ -474,7 +474,7 @@ class CustomETA(progressbar.widgets.ETA):
                 timedelta(seconds=int(data['eta_seconds'])),
                 timedelta(hours=1),
             )
-            data['eta'] = '{hours}{delta_truncated}'.format(
+            data['eta'] = ' {hours}{delta_truncated}'.format(
                 hours=hours,
                 # Strip the 0 hours from the timedelta
                 delta_truncated=str(delta).lstrip('0'),
