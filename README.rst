@@ -46,6 +46,10 @@ performance improvements, I'm accepting pull requests! :)
 
 Change Log
 ----------
+0.9.5
+~~~~~
+* Added option to normalize all path names
+
 0.9.4
 ~~~~~
 * Added better progress bar (pip3 install progressbar2)
