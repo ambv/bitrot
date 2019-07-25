@@ -50,7 +50,7 @@ import zlib
 import re
 import unicodedata
 
-DEFAULT_CHUNK_SIZE = 9999999  # used to be 16384 - block size in HFS+; 4X the block size in ext4
+DEFAULT_CHUNK_SIZE = 999999  # used to be 16384 - block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 2
 VERSION = (0, 9, 4)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
