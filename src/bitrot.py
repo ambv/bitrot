@@ -50,7 +50,7 @@ import zlib
 import re
 import unicodedata
 
-DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
+DEFAULT_CHUNK_SIZE = 9999999  # used to be 16384 - block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 2
 VERSION = (0, 9, 4)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
@@ -63,6 +63,26 @@ DESTINATION_DIR=SOURCE_DIR
 if sys.version[0] == '2':
     str = type(u'text')
     # use \'bytes\' for bytestrings
+
+def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
+    msg = MIMEText(stringToSend)
+
+    FROMADDR = 'DoesntMatter'
+    TOADDR  = 'REDACTED@gmail.com'
+    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
+    msg['From'] = email.utils.formataddr(('REDACTED', 'DoesntMatter'))
+    USERNAME = 'REDACTED'
+    PASSWORD = 'REDACTED'
+    try:
+        msg['Subject'] = subject
+        # The actual mail send
+        server = smtplib.SMTP('smtp.gmail.com:587')
+        server.starttls()
+        server.login(USERNAME,PASSWORD)
+        server.sendmail(FROMADDR, TOADDR, msg.as_string())
+        server.quit()
+    except Exception as err:
+        printAndOrLog('Email sending error: {}'.format(err))
 
 def normalize_path(path):
     if FSENCODING == 'utf-8' or FSENCODING == 'UTF-8':
@@ -78,64 +98,108 @@ def printAndOrLog(stringToProcess,log=True):
 
 def writeToLog(stringToWrite=""):
     log_path = get_path(SOURCE_DIR_PATH,ext=b'log')
-    # stringToWrite = cleanString(stringToWrite)
-    stringToWrite = stringToWrite
+    stringToWrite = cleanString(stringToWrite)
     try:
-        if os.path.exists(log_path):
-            with open(log_path, 'a') as logFile:
-                logFile.write(stringToWrite)
-                logFile.close()
+        with open(log_path, 'a') as logFile:
+            logFile.write(stringToWrite)
+            logFile.close()
     except Exception as err:
         print("Could not open log: \'{}\'. Received error: {}".format(log_path, err))
 
-def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
-    msg = MIMEText(stringToSend)
-
-    FROMADDR = 'author@gmail.com'
-    TOADDR  = 'recipient@gmail.com'
-    msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
-    msg['From'] = email.utils.formataddr(('Author', 'recipient@gmail.com'))
-    USERNAME = 'authorUsername'
-    PASSWORD = 'authorPassword'
-     
-    try:
-        msg['Subject'] = subject
-        # The actual mail send
-        server = smtplib.SMTP('smtp.gmail.com:587')
-        server.starttls()
-        server.login(USERNAME,PASSWORD)
-        server.sendmail(FROMADDR, TOADDR, msg.as_string())
-        server.quit()
-    except Exception as err:
-        printAndOrLog('Email sending error: {}'.format(err))
-
-
-def writeToSFV(stringToWrite="", sfv=""):
+def writeToSFV(stringToWrite="", sfv="",log=1):
     if (sfv == "MD5"):
         sfv_path = get_path(SOURCE_DIR_PATH,ext=b'md5')
     elif (sfv == "SFV"):
         sfv_path = get_path(SOURCE_DIR_PATH,ext=b'sfv')
     try:
-        if os.path.exists(sfv_path):
-            with open(sfv_path, 'a') as sfvFile:
-                sfvFile.write(stringToWrite)
-                sfvFile.close()
+        with open(sfv_path, 'a') as sfvFile:
+            sfvFile.write(stringToWrite)
+            sfvFile.close()
     except Exception as err:
-        print("Could not open checksum file: \'{}\'. Received error: {}".format(sfv_path, err))
+        printAndOrLog("Could not open checksum file: \'{}\'. Received error: {}".format(sfv_path, err),log)
 
 def hash(path, chunk_size,algorithm="",log=1,sfv=""):
+#0 byte files:
+# md5 d41d8cd98f00b204e9800998ecf8427e
+# LM  aad3b435b51404eeaad3b435b51404ee
+# NTLM    31d6cfe0d16ae931b73c59d7e0c089c0
+# sha1    da39a3ee5e6b4b0d3255bfef95601890afd80709
+# sha256  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+# sha384  38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b
+# sha512  cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e
+# md5(md5())  74be16979710d4c4e7c6647856088456
+# MySQL4.1+   be1bdec0aa74b4dcb079943e70528096cca985f8
+# ripemd160   9c1185a5c5e9fc54612808977ee8f548b2258d31
+# whirlpool   19fa61d75522a4669b44e39c1d2e1726c530232130d407f89afee0964997f7a73e83be698b288febcf88e3e03c4f0757ea8964e59b63d93708b138cc42a66eb3
+# adler32 00000001
+# crc32   00000000
+# crc32b  00000000
+# fnv1a32 811c9dc5
+# fnv1a64 cbf29ce484222325
+# fnv132  811c9dc5
+# fnv164  cbf29ce484222325
+# gost    ce85b99cc46752fffee35cab9a7b0278abb4c2d2055cff685af4912c49490f8d
+# gost-crypto 981e5f3ca30c841487830f84fb433e13ac1101569b9c13584ac483234cd656c0
+# haval128,3  c68f39913f901f3ddf44c707357a7d70
+# haval128,4  ee6bbf4d6a46a679b3a856c88538bb98
+# haval128,5  184b8482a0c050dca54b59c7f05bf5dd
+# haval160,3  d353c3ae22a25401d257643836d7231a9a95f953
+# haval160,4  1d33aae1be4146dbaaca0b6e70d7a11f10801525
+# haval160,5  255158cfc1eed1a7be7c55ddd64d9790415b933b
+# haval192,3  e9c48d7903eaf2a91c5b350151efcb175c0fc82de2289a4e
+# haval192,4  4a8372945afa55c7dead800311272523ca19d42ea47b72da
+# haval192,5  4839d0626f95935e17ee2fc4509387bbe2cc46cb382ffe85
+# haval224,3  c5aae9d47bffcaaf84a8c6e7ccacd60a0dd1932be7b1a192b9214b6d
+# haval224,4  3e56243275b3b81561750550e36fcd676ad2f5dd9e15f2e89e6ed78e
+# haval224,5  4a0513c032754f5582a758d35917ac9adf3854219b39e3ac77d1837e
+# haval256,3  4f6938531f0bc8991f62da7bbd6f7de3fad44562b8c6f4ebf146d5b4e46f7c17
+# haval256,4  c92b2e23091e80e375dadce26982482d197b1a2521be82da819f8ca2c579b99b
+# haval256,5  be417bb4dd5cfb76c7126f4f8eeb1553a449039307b1a3cd451dbfdc0fbbe330
+# joaat   00000000
+# md2 8350e5a3e24c153df2275c9f80692773
+# md4 31d6cfe0d16ae931b73c59d7e0c089c0
+# ripemd128   cdf26213a150dc3ecb610f18f6b38b46
+# ripemd256   02ba4c4e5f8ecd1877fc52d64d30e37a2d9774fb1e5d026380ae0168e3c5522d
+# ripemd320   22d65d5661536cdc75c1fdf5c6de7b41b9f27325ebc61e8557177d705a0ec880151c3a32a00899b8
+# sha224  d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f
+# snefru  8617f366566a011837f4fb4ba5bedea2b892f3ed8b894023d16ae344b2be5881
+# snefru256   8617f366566a011837f4fb4ba5bedea2b892f3ed8b894023d16ae344b2be5881
+# tiger128,3  3293ac630c13f0245f92bbb1766e1616
+# tiger128,4  24cc78a7f6ff3546e7984e59695ca13d
+# tiger160,3  3293ac630c13f0245f92bbb1766e16167a4e5849
+# tiger160,4  24cc78a7f6ff3546e7984e59695ca13d804e0b68
+# tiger192,3  3293ac630c13f0245f92bbb1766e16167a4e58492dde73f3
+# tiger192,4  24cc78a7f6ff3546e7984e59695ca13d804e0b686e255194
     if (algorithm == "MD5"):
-        digest=hashlib.md5()          
+        if(os.stat(path).st_size) == 0:
+            return "d41d8cd98f00b204e9800998ecf8427e"
+        else:
+            digest=hashlib.md5()          
     elif (algorithm == "SHA1"):
-        digest=hashlib.sha1()
+        if(os.stat(path).st_size) == 0:
+            return "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+        else:
+            digest=hashlib.sha1()
     elif (algorithm == "SHA224"):
-        digest=hashlib.sha224()
+        if(os.stat(path).st_size) == 0:
+            return "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"
+        else:
+            digest=hashlib.sha224()
     elif (algorithm == "SHA384"):
-        digest=hashlib.sha384()
+        if(os.stat(path).st_size) == 0:
+            return "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b"
+        else:
+            digest=hashlib.sha384()
     elif (algorithm == "SHA256"):
-        digest=hashlib.sha256()
+        if(os.stat(path).st_size) == 0:
+            return "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        else:
+            digest=hashlib.sha256()
     elif (algorithm == "SHA512"):
-        digest=hashlib.sha512() 
+        if(os.stat(path).st_size) == 0:
+            return "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+        else:
+            digest=hashlib.sha512() 
     else:
         #You should never get here
         printAndOrLog('Invalid hash function detected.',log)
@@ -152,10 +216,9 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
         printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
 
     if (sfv != ""):
-        strippedPathString = str(pathStripper(path,sfv))
         if (sfv == "MD5" and algorithm.upper() == "MD5"):
             sfvDigest = digest.hexdigest()
-            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,strippedPathString),sfv=sfv) 
+            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest,"*"+normalize_path(path)),sfv=sfv,log=log) 
         elif (sfv == "MD5"):
             sfvDigest = hashlib.md5()
             try:
@@ -168,7 +231,7 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
                         f2.close
             except Exception as err:
                 printAndOrLog("Could not open file: \'{}\'. Received error: {}".format(path, err),log)
-            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),strippedPathString),sfv=sfv) 
+            writeToSFV(stringToWrite="{} {}\n".format(sfvDigest.hexdigest(),"*"+normalize_path(path)),sfv=sfv,log=log) 
         elif (sfv == "SFV"):
             try:
                 if os.path.exists(path):
@@ -187,21 +250,11 @@ def hash(path, chunk_size,algorithm="",log=1,sfv=""):
                             crcvalue = (zlib.crc32(d2, crcvalue) & 0xFFFFFFFF)
                             #crcvalue = (binascii.crc32(d2,crcvalue) & 0xFFFFFFFF)
                             d2 = f2.read(chunk_size)
-                            f2.close()
+                        f2.close()
             except Exception as err:
                 printAndOrLog("Could not open SFV file: \'{}\'. Received error: {}".format(path, err),log)
-            writeToSFV(stringToWrite="{} {}\n".format(strippedPathString, "%08X" % crcvalue),sfv=sfv) 
-
+            writeToSFV(stringToWrite="{} {}\n".format(path, "%08X" % crcvalue),sfv=sfv,log=log) 
     return digest.hexdigest()
-
-def pathStripper(pathToStrip="",sfv=""):
-    pathToStripString = cleanString(str(pathToStrip))
-    pathToStripString = pathToStripString.replace("b'.\\\\", "")
-    pathToStripString = pathToStripString.replace("\\\\", "\\")
-    pathToStripString = pathToStripString[:-1]
-    if (sfv == "MD5"):
-        pathToStripString = "*" + pathToStripString
-    return pathToStripString
 
 def is_int(val):
     if type(val) == int:
@@ -324,7 +377,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
     progressCounter=0
     print("Scanning file and directory names to fix... Please wait...")
     if verbosity:
-        if self.verbosity:
+        if verbosity:
             bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for root, dirs, files in os.walk(directory, topdown=False):
         for f in files:
@@ -337,10 +390,10 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                     #os.chdir(root)
                     #fullfilename=os.path.abspath(f)
                     #os.rename(f, cleanString(f))  # relative path, more elegant
-                    p_uniBackup = f
+                    pBackup = f
                     if (fix == 4) or (fix == 6):
                         os.rename(os.path.join(root, f), os.path.join(root, cleanString(f)))
-                    p_uni = cleanString(f)
+                    p = cleanString(f)
 
                 except Exception as ex:
                     warnings.append(f)
@@ -349,8 +402,8 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                 else:
                     fixedRenameList.append([])
                     fixedRenameList.append([])
-                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
-                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uni))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, pBackup))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p))
                     fixedRenameCounter += 1
                     if verbosity:
                         progressCounter+=1
@@ -362,11 +415,11 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                     # chdir before renaming
                     #os.chdir(root)
                     #fullfilename=os.path.abspath(d)
-                    p_uniBackup = d
+                    pBackup = d
                     if (fix == 4) or (fix == 6):
                         os.rename(os.path.join(root, d), os.path.join(root, cleanString(d)))
                     #os.rename(d, cleanString(d))  # relative path, more elegant
-                    p_uni = cleanString(d)
+                    pi = cleanString(d)
 
                 except Exception as ex:
                     warnings.append(d)
@@ -375,8 +428,8 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
                 else:
                     fixedRenameList.append([])
                     fixedRenameList.append([])
-                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uniBackup))
-                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p_uni))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, pBackup))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p))
                     fixedRenameCounter += 1
                     if verbosity:
                         progressCounter+=1
@@ -386,7 +439,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
     return fixedRenameList, fixedRenameCounter
 
 def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=(), 
-                        verbosity=1, follow_links=False, log=1, fix=0, warnings = ()):
+                        verbosity=1, follow_links=False, log=1, fix=0, normalize = 0, warnings = ()):
     """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
 
     Returns a tuple with a list with existing files in \'directory\' and their
@@ -396,6 +449,7 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
     \'follow_links\' is False (the default).  All entries present in \'expected\'
     must be files (can't be directories or symlinks).
     """
+
     paths = set()
     total_size = 0
     ignoredList = []
@@ -403,13 +457,12 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
     if verbosity:
         print("Mapping all files... Please wait...")
         bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
-    for path, _, files in os.walk(directory):
+    for path, _, files in os.walk("."):
         for f in files:
             p = os.path.join(path, f)
             try:
                 #p_uni = p.decode(FSENCODING)
                 p_uni = p.encode(FSENCODING)
-
 
             except UnicodeDecodeError:
                 binary_stderr = getattr(sys.stderr, 'buffer', sys.stderr)
@@ -419,7 +472,6 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                 binary_stderr.write(b"\n")
                 printAndOrLog("Warning: cannot decode file name: {}".format(p),log)
                 continue
-
             try:
                 if follow_links or p_uni in expected:
                     st = os.stat(p)
@@ -438,10 +490,10 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                                 for wildcard in ignored]
                 include_this = [fnmatch(file.encode(FSENCODING), wildcard) 
                                 for file in p.split(os.path.sep)
-                                for wildcard in included]                
+                                for wildcard in included]              
                 if not stat.S_ISREG(st.st_mode) or any(exclude_this) or any([fnmatch(p.encode(FSENCODING), exc) for exc in ignored]) or (included and not any([fnmatch(p.encode(FSENCODING), exc) for exc in included]) and not any(include_this)):
                 #if not stat.S_ISREG(st.st_mode) or any([fnmatch(p, exc) for exc in ignored]):
-                    ignoredList.append(p.encode(FSENCODING))
+                    ignoredList.append(p)
                     #if verbosity > 2:
                         #print('Ignoring file: {}'.format(p))
                         #print('Ignoring file: {}'.format(p.decode(FSENCODING)))
@@ -449,11 +501,78 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                             #writeToLog("\nIgnoring file: {}".format(p))
                             #writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
                     continue
-                paths.add(p)
-                if verbosity:
-                    progressCounter+=1
-                    bar.update(progressCounter)
-                total_size += st.st_size
+                else:
+                    if (normalize):
+                        oldMatch = ""
+                        for filePath in paths:
+                            if normalize_path(p) == normalize_path(filePath):
+                                oldMatch = filePath
+                                break
+                        if oldMatch != "":
+                            oldFile = os.stat(oldMatch)
+                            new_mtime = int(st.st_mtime)
+                            old_mtime = int(oldFile.st_mtime)
+                            new_atime = int(st.st_atime)
+                            old_atime = int(oldFile.st_atime)
+                            now_date = datetime.datetime.now()
+                            if not new_mtime or not new_atime:
+                                nowTime = time.mktime(now_date.timetuple())
+                            if not old_mtime or not old_atime:
+                                nowTime = time.mktime(now_date.timetuple())
+                            if not new_mtime and not new_atime:
+                                new_mtime = int(nowTime)
+                                new_atime = int(nowTime)
+                            elif not (new_mtime):
+                                new_mtime = int(nowTime)
+                            elif not (new_atime):
+                                new_atime = int(nowTime)
+                            if not old_mtime and not old_atime:
+                                old_mtime = int(nowTime)
+                                old_atime = int(nowTime)
+                            elif not (old_mtime):
+                                old_mtime = int(nowTime)
+                            elif not (old_atime):
+                                old_atime = int(nowTime)
+
+                            new_mtime_date = datetime.datetime.fromtimestamp(new_mtime)
+                            new_atime_date = datetime.datetime.fromtimestamp(new_atime)
+                            old_mtime_date = datetime.datetime.fromtimestamp(old_mtime)
+                            old_atime_date = datetime.datetime.fromtimestamp(old_atime)
+
+                            delta_new_mtime_date = now_date - new_mtime_date
+                            delta_new_atime_date = now_date - new_atime_date
+
+                            delta_old_mtime_date = now_date - old_mtime_date
+                            delta_old_atime_date = now_date - old_atime_date
+
+                            if delta_new_mtime_date < delta_old_mtime_date:
+                                paths.add(p)
+                                paths.discard(filePath)
+                                if verbosity:
+                                    progressCounter+=1
+                                    bar.update(progressCounter)
+                                total_size += st.st_size
+                            elif delta_new_atime_date < delta_old_atime_date:
+                                paths.add(p)
+                                paths.discard(filePath)
+                                if verbosity:
+                                    progressCounter+=1
+                                    bar.update(progressCounter)
+                                total_size += st.st_size
+                            else:
+                                pass
+                        else:
+                            paths.add(p)
+                            if verbosity:
+                                progressCounter+=1
+                                bar.update(progressCounter)
+                            total_size += st.st_size
+                    else:
+                        paths.add(p)
+                        if verbosity:
+                            progressCounter+=1
+                            bar.update(progressCounter)
+                        total_size += st.st_size
     if verbosity:
         bar.finish()
     return paths, total_size, ignoredList
@@ -483,13 +602,14 @@ class CustomETA(progressbar.widgets.ETA):
         else:
             return formatted
 
+
 class BitrotException(Exception):
     pass
 
 class Bitrot(object):
     def __init__(
         self, verbosity=1, email = False, log = False, test=0, recent = 0, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], algorithm="", sfv="MD5", fix=0
+        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], algorithm="", sfv="MD5", fix=0, normalize = False
     ):
         self.verbosity = verbosity
         self.test = test
@@ -507,6 +627,7 @@ class Bitrot(object):
         self.algorithm = algorithm
         self.sfv = sfv
         self.fix = fix
+        self.normalize = normalize
 
     def maybe_commit(self, conn):
         if time.time() < self._last_commit_ts + self.commit_interval:
@@ -521,14 +642,16 @@ class Bitrot(object):
 
         bitrot_sha512 = get_path(SOURCE_DIR_PATH,ext=b'sha512')
         bitrot_log = get_path(SOURCE_DIR_PATH,ext=b'log')
-        bitrot_db = get_path(SOURCE_DIR_PATH,'db')
+        bitrot_db = get_path(SOURCE_DIR_PATH,b'db')
         bitrot_sfv = get_path(SOURCE_DIR_PATH,ext=b'sfv')
         bitrot_md5 = get_path(SOURCE_DIR_PATH,ext=b'md5')
         progressCounter=0
 
+
         #bitrot_db = os.path.basename(get_path())
         #bitrot_sha512 = os.path.basename(get_path(ext=b'sha512'))
         #bitrot_log = os.path.basename(get_path(ext=b'log'))
+
         try:
             conn = get_sqlite3_cursor(bitrot_db, copy=self.test)
         except ValueError:
@@ -538,10 +661,6 @@ class Bitrot(object):
             )
             if (log):
                 printAndOrLog("No database exists so cannot test. Run the tool once first.",self.log)
-                conn = sqlite3.connect(path)
-        except Exception as err:
-           printAndOrLog("Could not connect to database: \'{}\'. Received error: {}".format(bitrot_db, err))
-           raise
 
         cur = conn.cursor()
         new_paths = []
@@ -585,6 +704,7 @@ class Bitrot(object):
             verbosity=self.verbosity,
             log=self.log,
             fix=self.fix,
+            normalize=self.normalize,
             warnings=warnings,
 
         )
@@ -615,7 +735,7 @@ class Bitrot(object):
                     # permissions. We'll just skip it for now.
                     warnings.append(p)
                     #writeToLog('\nWarning: \'{}\' is currently unavailable for reading: {}'.format(p_uni, ex))
-                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p_uni, ex),self.log)
+                    printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p, ex),self.log)
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
@@ -639,17 +759,17 @@ class Bitrot(object):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid access and modification date. Try running with -f to fix.'.format(p.encode(FSENCODING)),self.log)
+                    printAndOrLog('Warning: \'{}\' has an invalid access and modification date. Try running with -f to fix.'.format(p),self.log)
             elif not (new_mtime):
                 new_mtime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid modification date. Try running with -f to fix.'.format(p.encode(FSENCODING)),self.log)
+                    printAndOrLog('Warning: \'{}\' has an invalid modification date. Try running with -f to fix.'.format(p),self.log)
             elif not (new_atime):
                 new_atime = int(nowTime)
                 if (self.fix  == 1) or (self.fix  == 5):
                     warnings.append(p)
-                    printAndOrLog('Warning: \'{}\' has an invalid access date. Try running with -f to fix.'.format(p.encode(FSENCODING)),self.log)
+                    printAndOrLog('Warning: \'{}\' has an invalid access date. Try running with -f to fix.'.format(p),self.log)
 
             b = datetime.datetime.fromtimestamp(new_mtime)
             c = datetime.datetime.fromtimestamp(new_atime)
@@ -658,8 +778,8 @@ class Bitrot(object):
                 delta = a - b
                 delta2= a - c
                 if (delta.days >= self.recent or delta2.days >= self.recent):
-                    tooOldList.append(p_uni)
-                    missing_paths.discard(p_uni)
+                    tooOldList.append(p)
+                    missing_paths.discard(normalize_path(p_uni.decode(FSENCODING)))
                     total_size -= st.st_size
                     continue
 
@@ -695,16 +815,15 @@ class Bitrot(object):
                     if (self.fix  == 1) or (self.fix  == 5) or (self.fix  == 2) or (self.fix  == 6):
                             fixedPropertiesList.append([])
                             fixedPropertiesList.append([])
-                            fixedPropertiesList[fixedPropertiesCounter].append(p_uni)
+                            fixedPropertiesList[fixedPropertiesCounter].append(p)
                             fixedPropertiesCounter += 1
 
             current_size += st.st_size
             if self.verbosity:
-                format_custom_text.update_mapping(f=self.progressFormat(progressCounter,len(paths),p_uni))
-                
+                format_custom_text.update_mapping(f=self.progressFormat(progressCounter,len(paths),p_uni))              
 
+            missing_paths.discard(normalize_path(p_uni.decode(FSENCODING)))
 
-            missing_paths.discard(p_uni)
             try:
                 new_hash = hash(p, self.chunk_size,self.algorithm,log=self.log,sfv=self.sfv)
             except (IOError, OSError) as e:
@@ -713,32 +832,34 @@ class Bitrot(object):
                             #p, errno.errorcode[e.args[0]]))
                             p.encode(FSENCODING), errno.errorcode[e.args[0]]),self.log)
                 continue
-
             cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
-                        'path=?', (p_uni,))
+                        'path=?', (normalize_path(p_uni.decode(FSENCODING)),))
             row = cur.fetchone()
+
             if not row:
                 stored_path = self.handle_unknown_path(
-                    cur, p_uni, new_mtime, new_hash, paths, hashes
+                    cur, normalize_path(p_uni.decode(FSENCODING)), new_mtime, new_hash, paths, hashes
                 )
                 self.maybe_commit(conn)
-                if p_uni == stored_path:
-                    new_paths.append(p_uni)
+
+                if normalize_path(p_uni.decode(FSENCODING)) == normalize_path(stored_path):
+                    new_paths.append(p)
                 else:
-                    renamed_paths.append((stored_path, p_uni))
+                    renamed_paths.append((stored_path, p))
                     missing_paths.discard(stored_path)
                 continue
             else:
-                existing_paths.append(p_uni)
+                existing_paths.append(p)
 
             stored_mtime, stored_hash, stored_ts = row
             if (int(stored_mtime) != new_mtime) and not (self.test == 2):
-                updated_paths.append(p_uni)
+                updated_paths.append(p)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
                             'WHERE path=?',
-                            (new_mtime, new_hash, ts(), p_uni))
+                            (new_mtime, new_hash, ts(), normalize_path(p_uni.decode(FSENCODING))))
                 self.maybe_commit(conn)
                 continue
+
             if stored_hash != new_hash:
                 errors.append(p)
                 emails.append([])
@@ -956,8 +1077,7 @@ class Bitrot(object):
 
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
-                   printAndOrLog('{}'.format(path),log)
-
+                   printAndOrLog('{}'.format(path,log))
         if fixedRenameList:
             if (self.fix == 4) or (self.fix == 6) or (self.verbosity >= 2):
                 if (len(fixedRenameList) == 1):
@@ -992,14 +1112,13 @@ class Bitrot(object):
             Returns `new_path` if the entry was indeed new or the `stored_path` (e.g.
             outdated path) if there was a rename.
             """
-
             try: # if the path isn't in the database
                 found = [path for path in hashes[new_hash] if path not in paths]
                 renamed = found.pop()
                 # update the path in the database
                 cur.execute(
                     'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
-                    (new_mtime, new_path, ts(), renamed),
+                    (new_mtime, normalize_path(new_path), ts(), normalize_path(renamed)),
                 )
 
                 return renamed
@@ -1008,15 +1127,14 @@ class Bitrot(object):
             except (KeyError,IndexError):
                 cur.execute(
                     'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
-                    (new_path, new_mtime, new_hash, ts()),
+                    (normalize_path(new_path), new_mtime, new_hash, ts()),
                 )
-                return new_path
+                return normalize_path(new_path)
 
 def get_path(directory=b'.', ext=b'db'):
     """Compose the path to the selected bitrot file."""
     directory = os.fsencode(directory)
     ext = os.fsencode(ext)
-    #print("directory: {}.bitrot{}".format(directory,ext))
     return os.path.join(directory, b'.bitrot.' + ext)
 
 def stable_sum(bitrot_db=None):
@@ -1035,9 +1153,7 @@ def stable_sum(bitrot_db=None):
         digest.update(row[0].encode('ascii'))
         row = cur.fetchone()
     return digest.hexdigest()
-        # except Exception as err:
-        #    printAndOrLog("Could not connect to database: \'{}\'. Received error: {}".format(bitrot_db, err))
-        #    raise
+
 def check_sha512_integrity(verbosity=1, log=1):
     sha512_path = get_path(SOURCE_DIR_PATH,ext=b'sha512')
 
@@ -1130,18 +1246,18 @@ def update_sha512_integrity(verbosity=1, log=1):
         if verbosity:
             printAndOrLog('Updating bitrot.sha512... ',log)
             sys.stdout.flush()
-        if os.path.exists(sha512_path):
-            try:
-                with open(sha512_path, 'wb') as f:
-                    f.write(new_sha512)
-                    f.close()
-            except IOError as e:
-                if e.errno == errno.EACCES:
-                    printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
-                    raise
-            except Exception as e:
+        
+        try:
+            with open(sha512_path, 'wb') as f:
+                f.write(new_sha512)
+                f.close()
+        except IOError as e:
+            if e.errno == errno.EACCES:
                 printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
-                raise    
+                raise
+        except Exception as e:
+            printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
+            raise    
 
         if verbosity:
             printAndOrLog('done.',log)
@@ -1204,7 +1320,7 @@ def run_from_command_line():
              'the LANG environment variables.')
     parser.add_argument(
         '-i', '--include-list', default='',
-        help='only read the files listed in this file (use - for stdin).')
+        help='only read the files listed in this file.')
         # .\Directory\1.hi
     parser.add_argument(
         '-t', '--test', default=0,
@@ -1245,6 +1361,9 @@ def run_from_command_line():
         'Level 4: List missing, fixed, new, renamed, updated entries, and ignored files.\n'
         'Level 5: List missing, fixed, new, renamed, updated entries, ignored files, and existing files\n.')
     parser.add_argument(
+        '-n', '--normalize', action='store_true',
+        help='Only allow one unique normalized file into the DB at a time.')
+    parser.add_argument(
         '-e', '--email', default=1,
         help='email file integrity errors')
     parser.add_argument(
@@ -1270,6 +1389,16 @@ def run_from_command_line():
         help="Root of destination folder. Default is current directory.")
 
     args = parser.parse_args()
+
+    try:
+        if not args.source:
+            SOURCE_DIR = '.'
+        else:
+            os.chdir(args.source)
+            SOURCE_DIR_PATH = args.source
+    except Exception as err:
+            SOURCE_DIR = '.'
+
     verbosity = 1
     if (args.verbose):
         try:
@@ -1299,18 +1428,15 @@ def run_from_command_line():
 
     try:
         if not args.source:
-            SOURCE_DIR = '.'
             if verbosity:
                 printAndOrLog('Using current directory for file list.',args.log)
         else:
-            os.chdir(args.source)
-            SOURCE_DIR_PATH = args.source
             if verbosity:
                 printAndOrLog('Source directory \'{}\'.'.format(args.source),args.log)
     except Exception as err:
-            SOURCE_DIR = '.'
             if verbosity:
                 printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log)
+
     if args.sum:
         try:
             print("Hash of {} is \n{}".format(SOURCE_DIR_PATH,stable_sum()))
@@ -1355,11 +1481,7 @@ def run_from_command_line():
             printAndOrLog("Invalid Destination directory: \'{}\'. Using current directory. Received error: {}".format(args.destination, err),args.log) 
 
     include_list = []
-    if args.include_list == '-':
-        if verbosity:
-            printAndOrLog('Using stdin for file list.',args.log) 
-        include_list = sys.stdin
-    elif args.include_list:
+    if args.include_list:
         if verbosity:
             printAndOrLog('Opening file inclusion list at \'{}\'.'.format(args.include_list),args.log)
         try:
@@ -1450,7 +1572,11 @@ def run_from_command_line():
         except Exception as err:
             printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
             recent = 0
-            pass       
+            pass    
+    normalize = False
+    if (args.normalize):
+        printAndOrLog("Only allowing one similarly named normalized file into the database.",args.log)
+        normalize = True
 
     fix = 0
     if (args.fix):
@@ -1500,6 +1626,7 @@ def run_from_command_line():
         exclude_list = exclude_list,
         sfv = sfv,
         fix = fix,
+        normalize = normalize,
     )
     if args.fsencoding:
         FSENCODING = args.fsencoding
