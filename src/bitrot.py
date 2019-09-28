@@ -757,6 +757,7 @@ class Bitrot(object):
                     continue
 
                 raise   # Not expected? https://github.com/ambv/bitrot/issues/
+
             if self.verbosity:
                 progressCounter+=1
                 bar.update(progressCounter) 
@@ -1449,10 +1450,10 @@ def run_from_command_line():
     try:
         if not args.source:
             if verbosity:
-                printAndOrLog('Using current directory for file list.',args.log)
+                printAndOrLog('Using current directory for source file list.',args.log)
         else:
             if verbosity:
-                printAndOrLog('Source directory \'{}\'.'.format(args.source),args.log)
+                printAndOrLog('Source directory: \'{}\'.'.format(args.source),args.log)
     except Exception as err:
             if verbosity:
                 printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log)
@@ -1496,7 +1497,7 @@ def run_from_command_line():
             else:
                 DESTINATION_DIR = args.destination
                 if verbosity:
-                    printAndOrLog('Destination directory \'{}\'.'.format(args.destination),args.log)
+                    printAndOrLog('Destination directory: \'{}\'.'.format(args.destination),args.log)
     except Exception as err:
             printAndOrLog("Invalid Destination directory: \'{}\'. Using current directory. Received error: {}".format(args.destination, err),args.log) 
 
