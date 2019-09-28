@@ -33,6 +33,7 @@ from datetime import timedelta
 import errno
 import hashlib
 import os
+from os import path
 import shutil
 import sqlite3
 import stat
@@ -50,7 +51,7 @@ import zlib
 import re
 import unicodedata
 
-DEFAULT_CHUNK_SIZE = 999999  # used to be 16384 - block size in HFS+; 4X the block size in ext4
+DEFAULT_CHUNK_SIZE = 1048576  # used to be 16384 - block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 2
 VERSION = (0, 9, 4)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
@@ -105,6 +106,23 @@ def writeToLog(stringToWrite=""):
             logFile.close()
     except Exception as err:
         print("Could not open log: \'{}\'. Received error: {}".format(log_path, err))
+
+def convert_bytes(num):
+    """
+    this function will convert bytes to MB.... GB... etc
+    """
+    for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
+        if num < 1024.0:
+            return "%3.1f %s" % (num, x)
+        num /= 1024.0
+
+def file_size(file_path):
+    """
+    this function will return the file size
+    """
+    if os.path.isfile(file_path):
+        file_info = os.stat(file_path)
+        return convert_bytes(file_info.st_size)
 
 def writeToSFV(stringToWrite="", sfv="",log=1):
     if (sfv == "MD5"):
@@ -1422,7 +1440,9 @@ def run_from_command_line():
     if (args.log):
         log_path = get_path(SOURCE_DIR_PATH,ext=b'log')
         if (verbosity):
-            writeToLog('\n=============================\n')
+            # if path.exists(log_path) == True or file_size(log_path) != 0:
+            #     writeToLog("\n")
+            writeToLog('=============================\n')
             writeToLog('Log started at ')
             writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 
