@@ -33,7 +33,6 @@ from datetime import timedelta
 import errno
 import hashlib
 import os
-from os import path
 import shutil
 import sqlite3
 import stat
@@ -54,7 +53,7 @@ import unicodedata
 DEFAULT_CHUNK_SIZE = 1048576  # used to be 16384 - block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 2
 VERSION = (0, 9, 4)
-IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
+IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES, errno.EINVAL}
 FSENCODING = sys.getfilesystemencoding()
 DEFAULT_HASH_FUNCTION = "SHA512"
 SOURCE_DIR='.'
@@ -65,7 +64,7 @@ if sys.version[0] == '2':
     str = type(u'text')
     # use \'bytes\' for bytestrings
 
-def sendMail(stringToSend="", log=1, verbosity=1, subject=""):
+def sendMail(stringToSend="", log=True, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
     FROMADDR = 'DoesntMatter'
@@ -107,24 +106,7 @@ def writeToLog(stringToWrite=""):
     except Exception as err:
         print("Could not open log: \'{}\'. Received error: {}".format(log_path, err))
 
-def convert_bytes(num):
-    """
-    this function will convert bytes to MB.... GB... etc
-    """
-    for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
-        if num < 1024.0:
-            return "%3.1f %s" % (num, x)
-        num /= 1024.0
-
-def file_size(file_path):
-    """
-    this function will return the file size
-    """
-    if os.path.isfile(file_path):
-        file_info = os.stat(file_path)
-        return convert_bytes(file_info.st_size)
-
-def writeToSFV(stringToWrite="", sfv="",log=1):
+def writeToSFV(stringToWrite="", sfv="",log=True):
     if (sfv == "MD5"):
         sfv_path = get_path(SOURCE_DIR_PATH,ext=b'md5')
     elif (sfv == "SFV"):
@@ -136,7 +118,7 @@ def writeToSFV(stringToWrite="", sfv="",log=1):
     except Exception as err:
         printAndOrLog("Could not open checksum file: \'{}\'. Received error: {}".format(sfv_path, err),log)
 
-def hash(path, chunk_size,algorithm="",log=1,sfv=""):
+def hash(path, chunk_size,algorithm="",log=True,sfv=""):
 #0 byte files:
 # md5 d41d8cd98f00b204e9800998ecf8427e
 # LM  aad3b435b51404eeaad3b435b51404ee
@@ -345,10 +327,8 @@ def get_sqlite3_cursor(path, copy=False):
     path = path.decode(FSENCODING)
     if copy:
         if not os.path.exists(path):
-            raise ValueError("Error: bitrot database at {} does not exist."
-                             "".format(path))
-            printAndOrLog("Error: bitrot database at {} does not exist."
-                    "".format(path),log)
+            raise ValueError("Error: bitrot database at {} does not exist.".format(path))
+            printAndOrLog("Error: bitrot database at {} does not exist.".format(path),log)
         db_copy = tempfile.NamedTemporaryFile(prefix='bitrot_', suffix='.db',
                                               delete=False)
         try:
@@ -359,13 +339,11 @@ def get_sqlite3_cursor(path, copy=False):
                     finally:
                         db_copy.close()
                         db_orig.close()
-        except IOError as e:
-            if e.errno == errno.EACCES:
-                printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e),log)
-                raise
+        # except IOError as e:
+        #     if e.errno == errno.EACCES:
         except Exception as e:
             printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e),log)
-            raise   
+            raise Exception("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e))
 
 
         path = db_copy.name
@@ -373,8 +351,8 @@ def get_sqlite3_cursor(path, copy=False):
     try:
         conn = sqlite3.connect(path)
     except Exception as err:
-           printAndOrLog("Could not connect to database: \'{}\'. Received error: {}".format(path, err))
-           raise
+           printAndOrLog("Could not connect to database: \'{}\'. Received error: {}".format(path, err),log)
+           raise Exception("Could not connect to database: \'{}\'. Received error: {}".format(path, err))
     atexit.register(conn.close)
     cur = conn.cursor()
     tables = set(t for t, in cur.execute('SELECT name FROM sqlite_master'))
@@ -387,7 +365,7 @@ def get_sqlite3_cursor(path, copy=False):
     return conn
 
 
-def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
+def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=True, fix=5, warnings = (), fixedRenameList = (), fixedRenameCounter = 0):
 #   Use os.getcwd() instead of "." since it doesn't seem to be resolved the way you want. This will be illustrated in the diagnostics function.
 #   Use relative path renaming by os.chdir(root). Of course using correct absolute paths also works, but IMHO relative paths are just more elegant.
 #   Pass an unambiguous string into os.walk() as others have mentioned.
@@ -457,7 +435,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=1, fix=5, warnin
     return fixedRenameList, fixedRenameCounter
 
 def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=(), 
-                        verbosity=1, follow_links=False, log=1, fix=0, normalize = 0, warnings = ()):
+                        verbosity=1, follow_links=False, log=True, fix=0, normalize=False, warnings = ()):
     """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
 
     Returns a tuple with a list with existing files in \'directory\' and their
@@ -497,7 +475,7 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                     st = os.lstat(p)
             except OSError as ex:
                 if ex.errno not in IGNORED_FILE_SYSTEM_ERRORS:
-                    raise
+                    raise ("Unhandled file system error: []}".format(ex.errno))
             else:
                 # split path /dir1/dir2/file.txt into
                 # ['dir1', 'dir2', 'file.txt']
@@ -627,7 +605,7 @@ class BitrotException(Exception):
 class Bitrot(object):
     def __init__(
         self, verbosity=1, email = False, log = False, test=0, recent = 0, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], algorithm="", sfv="MD5", fix=0, normalize = False
+        chunk_size=DEFAULT_CHUNK_SIZE, include_list=[], exclude_list=[], algorithm="", sfv="MD5", fix=0, normalize=False
     ):
         self.verbosity = verbosity
         self.test = test
@@ -645,7 +623,7 @@ class Bitrot(object):
         self.algorithm = algorithm
         self.sfv = sfv
         self.fix = fix
-        self.normalize = normalize
+        self.normalize=normalize
 
     def maybe_commit(self, conn):
         if time.time() < self._last_commit_ts + self.commit_interval:
@@ -673,10 +651,7 @@ class Bitrot(object):
         try:
             conn = get_sqlite3_cursor(bitrot_db, copy=self.test)
         except ValueError:
-            raise BitrotException(
-                2,
-                'No database exists so cannot test. Run the tool once first.',
-            )
+            raise BitrotException(2,'No database exists so cannot test. Run the tool once first.')
             if (log):
                 printAndOrLog("No database exists so cannot test. Run the tool once first.",self.log)
 
@@ -756,8 +731,7 @@ class Bitrot(object):
                     printAndOrLog('Warning: \'{}\' is currently unavailable for reading: {}'.format(p, ex),self.log)
                     continue
 
-                raise   # Not expected? https://github.com/ambv/bitrot/issues/
-
+                raise ("Unhandled file system error: []}".format(ex.errno))
             if self.verbosity:
                 progressCounter+=1
                 bar.update(progressCounter) 
@@ -951,13 +925,9 @@ class Bitrot(object):
 
         if errors:
             if len(errors) == 1:
-                raise BitrotException(
-                    1, 'There was 1 error found.',
-                )
+                raise BitrotException(1, 'There was 1 error found.')
             else:
-                raise BitrotException(
-                    1, 'There were {} errors found.'.format(len(errors)), errors,
-                )
+                raise BitrotException(1, 'There were {} errors found.'.format(len(errors)), errors)
 
     def select_all_paths(self, cur):
         result = set()
@@ -1173,7 +1143,7 @@ def stable_sum(bitrot_db=None):
         row = cur.fetchone()
     return digest.hexdigest()
 
-def check_sha512_integrity(verbosity=1, log=1):
+def check_sha512_integrity(verbosity=1, log=True):
     sha512_path = get_path(SOURCE_DIR_PATH,ext=b'sha512')
 
     if verbosity:
@@ -1184,13 +1154,11 @@ def check_sha512_integrity(verbosity=1, log=1):
             with open(sha512_path, 'rb') as f:
                 old_sha512 = f.read().strip()
                 f.close()
-    except IOError as e:
-        if e.errno == errno.EACCES:
-            printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
-            raise
+    # except IOError as e:
+    #     if e.errno == errno.EACCES:
     except Exception as e:
         printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
-        raise    
+        raise ("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e))    
    
     if not os.path.exists(sha512_path):
         return
@@ -1203,13 +1171,11 @@ def check_sha512_integrity(verbosity=1, log=1):
             with open(bitrot_db, 'rb') as f:
                 digest.update(f.read())
                 f.close()
-    except IOError as e:
-        if e.errno == errno.EACCES:
-            printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e),log)
-            raise
+    # except IOError as e:
+    #     if e.errno == errno.EACCES:
     except Exception as e:
         printAndOrLog("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e),log)
-        raise   
+        raise Exception("Could not open database file: \'{}\'. Received error: {}".format(bitrot_db, e))   
 
     if not os.path.exists(bitrot_db):
         return
@@ -1227,14 +1193,12 @@ def check_sha512_integrity(verbosity=1, log=1):
         printAndOrLog("If you'd like to continue anyway, delete the .bitrot.sha512 file and try again.",log)
         printAndOrLog("bitrot.db integrity check failed, cannot continue.",log)
 
-        raise BitrotException(
-            3, 'bitrot.db integrity check failed, cannot continue.',
-        )
+        raise BitrotException(3, 'bitrot.db integrity check failed, cannot continue.',)
 
     if verbosity:
         printAndOrLog('OK.',log)
 
-def update_sha512_integrity(verbosity=1, log=1):
+def update_sha512_integrity(verbosity=1, log=True):
     old_sha512 = 0
     sha512_path = get_path(SOURCE_DIR_PATH,ext=b'sha512')
 
@@ -1243,13 +1207,11 @@ def update_sha512_integrity(verbosity=1, log=1):
             with open(sha512_path, 'rb') as f:
                 old_sha512 = f.read().strip()
                 f.close()
-        except IOError as e:
-            if e.errno == errno.EACCES:
-                printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
-                raise
+        # except IOError as e:
+        #     if e.errno == errno.EACCES:
         except Exception as e:
             printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
-            raise    
+            raise Exception("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e))    
 
     bitrot_db = get_path(SOURCE_DIR_PATH,'db')
     digest = hashlib.sha512()
@@ -1270,18 +1232,16 @@ def update_sha512_integrity(verbosity=1, log=1):
             with open(sha512_path, 'wb') as f:
                 f.write(new_sha512)
                 f.close()
-        except IOError as e:
-            if e.errno == errno.EACCES:
-                printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
-                raise
+        # except IOError as e:
+        #     if e.errno == errno.EACCES:
         except Exception as e:
             printAndOrLog("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e),log)
-            raise    
+            raise Exception("Could not open integrity file: \'{}\'. Received error: {}".format(sha512_path, e))    
 
         if verbosity:
             printAndOrLog('done.',log)
 
-def recordTimeElapsed(startTime=0, log=1):
+def recordTimeElapsed(startTime=0, log=True):
     elapsedTime = (time.time() - startTime)  
     if (elapsedTime > 3600):
         elapsedTime /= 3600
@@ -1441,19 +1401,17 @@ def run_from_command_line():
     if (args.log):
         log_path = get_path(SOURCE_DIR_PATH,ext=b'log')
         if (verbosity):
-            # if path.exists(log_path) == True or file_size(log_path) != 0:
-            #     writeToLog("\n")
-            writeToLog('=============================\n')
+            writeToLog('\n=============================\n')
             writeToLog('Log started at ')
             writeToLog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 
     try:
         if not args.source:
             if verbosity:
-                printAndOrLog('Using current directory for source file list.',args.log)
+                printAndOrLog('Using current directory for file list.',args.log)
         else:
             if verbosity:
-                printAndOrLog('Source directory: \'{}\'.'.format(args.source),args.log)
+                printAndOrLog('Source directory \'{}\'.'.format(args.source),args.log)
     except Exception as err:
             if verbosity:
                 printAndOrLog("Invalid source directory: \'{}\'. Using current directory. Received error: {}".format(args.source, err),args.log)
@@ -1497,7 +1455,7 @@ def run_from_command_line():
             else:
                 DESTINATION_DIR = args.destination
                 if verbosity:
-                    printAndOrLog('Destination directory: \'{}\'.'.format(args.destination),args.log)
+                    printAndOrLog('Destination directory \'{}\'.'.format(args.destination),args.log)
     except Exception as err:
             printAndOrLog("Invalid Destination directory: \'{}\'. Using current directory. Received error: {}".format(args.destination, err),args.log) 
 
@@ -1594,10 +1552,10 @@ def run_from_command_line():
             printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
             recent = 0
             pass    
-    normalize = False
+    normalize=False
     if (args.normalize):
         printAndOrLog("Only allowing one similarly named normalized file into the database.",args.log)
-        normalize = True
+        normalize=True
 
     fix = 0
     if (args.fix):
@@ -1647,7 +1605,7 @@ def run_from_command_line():
         exclude_list = exclude_list,
         sfv = sfv,
         fix = fix,
-        normalize = normalize,
+        normalize=normalize,
     )
     if args.fsencoding:
         FSENCODING = args.fsencoding
