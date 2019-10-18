@@ -252,7 +252,7 @@ class Bitrot(object):
                 print(
                     '\rerror: SHA1 mismatch for {}: expected {}, got {}.'
                     ' Last good hash checked on {}.'.format(
-                        p, stored_sha1, new_sha1, stored_ts
+                        p.decode(FSENCODING), stored_sha1, new_sha1, stored_ts
                     ),
                     file=sys.stderr,
                 )
