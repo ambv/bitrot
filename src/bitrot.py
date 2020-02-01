@@ -50,9 +50,9 @@ import zlib
 import re
 import unicodedata
 
-DEFAULT_CHUNK_SIZE = 1048576  # used to be 16384 - block size in HFS+; 4X the block size in ext4
+DEFAULT_CHUNK_SIZE = 1048576 # used to be 16384 - block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 2
-VERSION = (0, 9, 4)
+VERSION = (0, 9, 5)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES, errno.EINVAL}
 FSENCODING = sys.getfilesystemencoding()
 DEFAULT_HASH_FUNCTION = "SHA512"
@@ -83,7 +83,6 @@ def sendMail(stringToSend="", log=True, verbosity=1, subject=""):
         server.quit()
     except Exception as err:
         printAndOrLog('Email sending error: {}'.format(err))
-
 def normalize_path(path):
     if FSENCODING == 'utf-8' or FSENCODING == 'UTF-8':
         return unicodedata.normalize('NFKC', str(path))
@@ -373,7 +372,6 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=True, fix=5, war
     progressCounter=0
     print("Scanning file and directory names to fix... Please wait...")
     if verbosity:
-        if verbosity:
             bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     for root, dirs, files in os.walk(directory, topdown=False):
         for f in files:
@@ -1067,8 +1065,9 @@ class Bitrot(object):
                 missing_paths = sorted(missing_paths)
                 for path in missing_paths:
                    printAndOrLog('{}'.format(path,log))
+
         if fixedRenameList:
-            if (self.fix == 4) or (self.fix == 6) or (self.verbosity >= 2):
+            if ((self.fix == 4) or (self.fix == 6)) and (self.verbosity >= 1):
                 if (len(fixedRenameList) == 1):
                     printAndOrLog('1 filename fixed:',log)
                 else:
@@ -1078,7 +1077,7 @@ class Bitrot(object):
                     printAndOrLog('  \'{}\' to \'{}\''.format(fixedRenameList[i][0],fixedRenameList[i][1]),log)
        
         if fixedPropertiesList:
-            if (self.fix == 2) or (self.fix == 6) or (self.verbosity >= 2):
+            if ((self.fix == 2) or (self.fix == 6)) and (self.verbosity >= 1):
                 if (len(fixedPropertiesList) == 1):
                     printAndOrLog('1 file property fixed:',log)
                 else:
@@ -1335,7 +1334,7 @@ def run_from_command_line():
         '-v', '--verbose', default=1,
         help='Level 0: Don\'t print anything besides checksum errors.\n'
         'Level 1: Normal amount of verbosity.\n'
-        'Level 2: List missing, and fixed entries.\n'
+		'Level 2: List missing entries.\n'
         'Level 3: List missing, fixed, new, renamed, and updated entries.\n'
         'Level 4: List missing, fixed, new, renamed, updated entries, and ignored files.\n'
         'Level 5: List missing, fixed, new, renamed, updated entries, ignored files, and existing files\n.')
@@ -1383,7 +1382,7 @@ def run_from_command_line():
         try:
             verbosity = int(args.verbose)
             if (verbosity == 2):
-                printAndOrLog("Verbosity option selected: {}. List missing, and fixed entries.".format(args.verbose),args.log)
+                printAndOrLog("Verbosity option selected: {}. List missing entries.".format(args.verbose),args.log)
             elif (verbosity == 3):
                 printAndOrLog("Verbosity option selected: {}. List missing, fixed, new, renamed, and updated entries.".format(args.verbose),args.log)
             elif (verbosity == 4):
