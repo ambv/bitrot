@@ -83,6 +83,7 @@ def sendMail(stringToSend="", log=True, verbosity=1, subject=""):
         server.quit()
     except Exception as err:
         printAndOrLog('Email sending error: {}'.format(err))
+
 def normalize_path(path):
     if FSENCODING == 'utf-8' or FSENCODING == 'UTF-8':
         return unicodedata.normalize('NFKC', str(path))
@@ -1395,7 +1396,6 @@ def run_from_command_line():
         except Exception as err:
             printAndOrLog("Invalid test option selected: {}. Using default level 1.".format(args.verbose),args.log)
             verbosity = 1
-            pass
 
     if (args.log):
         log_path = get_path(SOURCE_DIR_PATH,ext=b'log')
@@ -1439,7 +1439,6 @@ def run_from_command_line():
         except Exception as err:
             printAndOrLog("Invalid test option selected: {}. Using default level 0: testing-only disabled.".format(args.test),args.log)
             test = 0
-            pass
 
     DESTINATION_DIR = SOURCE_DIR
     try:
@@ -1550,7 +1549,7 @@ def run_from_command_line():
         except Exception as err:
             printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
             recent = 0
-            pass    
+ 
     normalize=False
     if (args.normalize):
         printAndOrLog("Only allowing one similarly named normalized file into the database.",args.log)
@@ -1588,7 +1587,7 @@ def run_from_command_line():
         except Exception as err:
             printAndOrLog("Invalid test option selected: {}. Using default level; will report files that have missing access and modification timestamps and invalid characters.".format(args.fix),args.log)
             fix = 5
-            pass
+
 
     bt = Bitrot(
         verbosity = verbosity,
