@@ -67,16 +67,17 @@ if sys.version[0] == '2':
 def sendMail(stringToSend="", log=True, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
-    FROMADDR = 'DoesntMatter'
+	FROMADDR = 'DoesntMatter'
     TOADDR  = 'REDACTED@gmail.com'
     msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
     msg['From'] = email.utils.formataddr(('REDACTED', 'DoesntMatter'))
     USERNAME = 'REDACTED'
     PASSWORD = 'REDACTED'
+
     try:
         msg['Subject'] = subject
         # The actual mail send
-        server = smtplib.SMTP('smtp.gmail.com:587')
+        server = smtplib.SMTP('smtp.mail.com:587')
         server.starttls()
         server.login(USERNAME,PASSWORD)
         server.sendmail(FROMADDR, TOADDR, msg.as_string())
@@ -769,7 +770,7 @@ class Bitrot(object):
             if (self.recent >= 1):
                 delta = a - b
                 delta2= a - c
-                if (delta.days >= self.recent or delta2.days >= self.recent):
+                if (delta.days > self.recent or delta2.days > self.recent):
                     tooOldList.append(p)
                     missing_paths.discard(normalize_path(p_uni.decode(FSENCODING)))
                     total_size -= st.st_size
@@ -1541,7 +1542,7 @@ def run_from_command_line():
             recent = int(args.recent)
             if (recent):
                 if (verbosity):
-                    printAndOrLog("Only processing files < {} days old.".format(args.recent),args.log)
+                    printAndOrLog("Only processing files <= {} days old.".format(args.recent),args.log)
             else:
                 if (verbosity):
                     printAndOrLog("Invalid recent option selected: {}. Processing all files, not just recent ones.".format(args.recent),args.log)
