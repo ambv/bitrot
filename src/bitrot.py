@@ -67,7 +67,7 @@ if sys.version[0] == '2':
 def sendMail(stringToSend="", log=True, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
-	FROMADDR = 'DoesntMatter'
+    FROMADDR = 'DoesntMatter'
     TOADDR  = 'REDACTED@gmail.com'
     msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
     msg['From'] = email.utils.formataddr(('REDACTED', 'DoesntMatter'))
@@ -917,17 +917,17 @@ class Bitrot(object):
         if self.verbosity:
             recordTimeElapsed(startTime = self.startTime, log = self.log)
 
-        if warnings:
-            if len(warnings) == 1:
-                printAndOrLog('Warning: There was 1 warning found.',self.log)
-            else:
-                printAndOrLog('Warning: There were {} warnings found.'.format(len(warnings)),self.log)
+        # if warnings:
+        #     if len(warnings) == 1:
+        #         printAndOrLog('Warning: There was 1 warning found.',self.log)
+        #     else:
+        #         printAndOrLog('Warning: There were {} warnings found.'.format(len(warnings)),self.log)
 
-        if errors:
-            if len(errors) == 1:
-                raise BitrotException(1, 'There was 1 error found.')
-            else:
-                raise BitrotException(1, 'There were {} errors found.'.format(len(errors)), errors)
+        # if errors:
+        #     if len(errors) == 1:
+        #         raise BitrotException(1, 'There was 1 error found.')
+        #     else:
+        #         raise BitrotException(1, 'There were {} errors found.'.format(len(errors)), errors)
 
     def select_all_paths(self, cur):
         result = set()
@@ -971,10 +971,13 @@ class Bitrot(object):
 
         sizeUnits , total_size = calculateUnits(total_size=total_size)
         totalFixed = fixedRenameCounter + fixedPropertiesCounter
+
+        printAndOrLog('Finished. {:.2f} {} of data read.'.format(total_size,sizeUnits),log)
+        
         if (error_count == 1):
-                printAndOrLog('Finished. {:.2f} {} of data read. 1 error found.'.format(total_size,sizeUnits),log)
+            printAndOrLog('1 error found.',log)
         else:
-            printAndOrLog('Finished. {:.2f} {} of data read. {} errors found.'.format(total_size, sizeUnits, error_count),log)
+            printAndOrLog('{} errors found.'.format(error_count),log)
 
         if (warning_count == 1):
             printAndOrLog(' 1 warning found.',log)
