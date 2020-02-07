@@ -267,45 +267,63 @@ def is_int(val):
             return False
 
 def isValidHashingFunction(stringToValidate=""):
-    if  (stringToValidate.upper() == "SHA1"
-      or stringToValidate.upper() == "SHA224"
-      or stringToValidate.upper() == "SHA384"
-      or stringToValidate.upper() == "SHA256"
-      or stringToValidate.upper() == "SHA512"
-      or stringToValidate.upper() == "MD5"):
+    hashFunctions = ["SHA1", "SHA224", "SHA384", "SHA256", "MD5"]
+    if stringToValidate in hashFunctions
         return True
     else:
         return False
+    
+#    if  (stringToValidate.upper() == "SHA1"
+#      or stringToValidate.upper() == "SHA224"
+#      or stringToValidate.upper() == "SHA384"
+#      or stringToValidate.upper() == "SHA256"
+#      or stringToValidate.upper() == "SHA512"
+#      or stringToValidate.upper() == "MD5"):
+#        return True
+#    else:
+#        return False
+
 
 def calculateUnits(total_size = 0):
-        if (total_size/1024/1024/1024/1024/1024/1024/1024/1024 >= 1):
-            sizeUnits = "YB"
-            total_size = total_size/1024/1024/1024/1024/1024/1024/1024/1024
-        elif (total_size/1024/1024/1024/1024/1024/1024/1024 >= 1):
-            sizeUnits = "ZB"
-            total_size = total_size/1024/1024/1024/1024/1024/1024/1024
-        elif (total_size/1024/1024/1024/1024/1024/1024 >= 1):
-            sizeUnits = "EB"
-            total_size = total_size/1024/1024/1024/1024/1024/1024
-        elif (total_size/1024/1024/1024/1024/1024 >= 1):
-            sizeUnits = "PB"
-            total_size = total_size/1024/1024/1024/1024/1024
-        elif (total_size/1024/1024/1024/1024 >= 1):
-            sizeUnits = "TB"
-            total_size = total_size/1024/1024/1024/1024
-        elif (total_size/1024/1024/1024 >= 1):
-            sizeUnits = "GB"
-            total_size = total_size/1024/1024/1024
-        elif (total_size/1024/1024 >= 1):
-            sizeUnits = "MB"
-            total_size = total_size/1024/1024
-        elif (total_size/1024 >= 1):
-            sizeUnits = "KB"
+        units = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+        size = 0
+    
+        #  Divides total size until it is less than 1024
+        while total_size >= 1024:
             total_size = total_size/1024
-        else:
-            sizeUnits = "B"
-            total_size = total_size
+            size = size + 1  # Size is used as the index for Units
+        
+        sizeUnits = units[size]
+            
+#        if (total_size/1024/1024/1024/1024/1024/1024/1024/1024 >= 1):
+#            sizeUnits = "YB"
+#            total_size = total_size/1024/1024/1024/1024/1024/1024/1024/1024
+#        elif (total_size/1024/1024/1024/1024/1024/1024/1024 >= 1):
+#            sizeUnits = "ZB"
+#            total_size = total_size/1024/1024/1024/1024/1024/1024/1024
+#        elif (total_size/1024/1024/1024/1024/1024/1024 >= 1):
+#            sizeUnits = "EB"
+#            total_size = total_size/1024/1024/1024/1024/1024/1024
+#        elif (total_size/1024/1024/1024/1024/1024 >= 1):
+#            sizeUnits = "PB"
+#            total_size = total_size/1024/1024/1024/1024/1024
+#        elif (total_size/1024/1024/1024/1024 >= 1):
+#            sizeUnits = "TB"
+#            total_size = total_size/1024/1024/1024/1024
+#        elif (total_size/1024/1024/1024 >= 1):
+#            sizeUnits = "GB"
+#            total_size = total_size/1024/1024/1024
+#        elif (total_size/1024/1024 >= 1):
+#            sizeUnits = "MB"
+#            total_size = total_size/1024/1024
+#        elif (total_size/1024 >= 1):
+#            sizeUnits = "KB"
+#            total_size = total_size/1024
+#        else:
+#            sizeUnits = "B"
+#            total_size = total_size
         return sizeUnits, total_size
+
 
 
 def cleanString(stringToClean=""):
