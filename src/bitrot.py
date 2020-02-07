@@ -425,7 +425,7 @@ def fix_existing_paths(directory=SOURCE_DIR, verbosity = 1, log=True, fix=5, war
                     fixedRenameList.append([])
                     fixedRenameList.append([])
                     fixedRenameList[fixedRenameCounter].append(os.path.join(root, pBackup))
-                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, p))
+                    fixedRenameList[fixedRenameCounter].append(os.path.join(root, pi))
                     fixedRenameCounter += 1
                     if verbosity:
                         progressCounter+=1
