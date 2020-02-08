@@ -67,7 +67,7 @@ if sys.version[0] == '2':
 def sendMail(stringToSend="", log=True, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
-    FROMADDR = 'DoesntMatter'
+	FROMADDR = 'DoesntMatter'
     TOADDR  = 'REDACTED@gmail.com'
     msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
     msg['From'] = email.utils.formataddr(('REDACTED', 'DoesntMatter'))
@@ -268,7 +268,7 @@ def is_int(val):
 
 def isValidHashingFunction(stringToValidate=""):
     hashFunctions = ["SHA1", "SHA224", "SHA384", "SHA256", "MD5"]
-    if stringToValidate in hashFunctions
+    if stringToValidate in hashFunctions:
         return True
     else:
         return False
@@ -998,9 +998,9 @@ class Bitrot(object):
             printAndOrLog('{} errors found.'.format(error_count),log)
 
         if (warning_count == 1):
-            printAndOrLog(' 1 warning found.',log)
+            printAndOrLog('1 warning found.',log)
         else:
-           printAndOrLog(' {} warnings found.'.format(warning_count),log)
+           printAndOrLog('{} warnings found.'.format(warning_count),log)
 
         if self.verbosity >= 1:
             if (all_count == 1):
@@ -1357,7 +1357,7 @@ def run_from_command_line():
         '-v', '--verbose', default=1,
         help='Level 0: Don\'t print anything besides checksum errors.\n'
         'Level 1: Normal amount of verbosity.\n'
-		'Level 2: List missing entries.\n'
+        'Level 2: List missing entries.\n'
         'Level 3: List missing, fixed, new, renamed, and updated entries.\n'
         'Level 4: List missing, fixed, new, renamed, updated entries, and ignored files.\n'
         'Level 5: List missing, fixed, new, renamed, updated entries, ignored files, and existing files\n.')
