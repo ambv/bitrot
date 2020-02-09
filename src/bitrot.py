@@ -67,7 +67,7 @@ if sys.version[0] == '2':
 def sendMail(stringToSend="", log=True, verbosity=1, subject=""):
     msg = MIMEText(stringToSend)
 
-	FROMADDR = 'DoesntMatter'
+    FROMADDR = 'DoesntMatter'
     TOADDR  = 'REDACTED@gmail.com'
     msg['To'] = email.utils.formataddr(('Recipient', 'recipient@gmail.com'))
     msg['From'] = email.utils.formataddr(('REDACTED', 'DoesntMatter'))
