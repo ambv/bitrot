@@ -514,7 +514,6 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                         #if (log):
                             #writeToLog("\nIgnoring file: {}".format(p))
                             #writeToLog("\nIgnoring file: {}".format(p.decode(FSENCODING)))
-                    continue
                 else:
                     if (normalize):
                         oldMatch = ""
@@ -562,31 +561,22 @@ def list_existing_paths(directory=SOURCE_DIR, expected=(), ignored=(), included=
                             if delta_new_mtime_date < delta_old_mtime_date:
                                 paths.add(p)
                                 paths.discard(filePath)
-                                if verbosity:
-                                    progressCounter+=1
-                                    bar.update(progressCounter)
                                 total_size += st.st_size
                             elif delta_new_atime_date < delta_old_atime_date:
                                 paths.add(p)
                                 paths.discard(filePath)
-                                if verbosity:
-                                    progressCounter+=1
-                                    bar.update(progressCounter)
                                 total_size += st.st_size
                             else:
                                 pass
                         else:
                             paths.add(p)
-                            if verbosity:
-                                progressCounter+=1
-                                bar.update(progressCounter)
                             total_size += st.st_size
                     else:
                         paths.add(p)
-                        if verbosity:
-                            progressCounter+=1
-                            bar.update(progressCounter)
                         total_size += st.st_size
+                if verbosity:
+                    progressCounter+=1
+                    bar.update(progressCounter)
     if verbosity:
         bar.finish()
     return paths, total_size, ignoredList
