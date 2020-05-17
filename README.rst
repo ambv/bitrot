@@ -22,27 +22,28 @@ will report all errors, e.g. files that changed on the hard drive but
 still have the same modification date.
 
 All paths stored in ``.bitrot.db`` are relative so it's safe to rescan
-a folder after moving it to another drive.
+a folder after moving it to another drive. Just remember to move it in
+a way that doesn't touch modification dates. Otherwise the checksum
+database is useless.
 
 Performance
 -----------
 
-Obviously depends on how fast the underlying drive is. Since bandwidth
-for checksum calculations is greater than your drive's data transfer
-rate, even when comparing mobile CPUs vs. SSD drives, the script is
-single-threaded.
+Obviously depends on how fast the underlying drive is.  Historically
+the script was single-threaded because back in 2013 checksum
+calculations on a single core still outran typical drives, including
+the mobile SSDs of the day.  In 2020 this is no longer the case so the
+script now uses a process pool to calculate SHA1 hashes and perform
+`stat()` calls.
 
-No rigorous performance tests have been done.  Scanning a ~1000 files
-totalling ~4 GB takes 20 seconds on a 2015 Macbook Air (SM0256G SSD).
-This is with cold disk cache.
+No rigorous performance tests have been done.  Scanning a ~1000 file
+directory totalling ~5 GB takes 2.2s on a 2018 MacBook Pro 15" with
+a AP0512M SSD.  Back in 2013, that same feat on a 2015 MacBook Air with
+a SM0256G SSD took over 20 seconds.
 
-Some other tests back from 2013: a typical 5400 RPM laptop hard drive
-scanning a 60+ GB music library took around 15 minutes. On an OCZ
-Vertex 3 SSD drive ``bitrot`` was able to scan a 100 GB Aperture library
-in under 10 minutes. Both tests on HFS+.
-
-If you'd like to contribute some more rigorous benchmarks or any
-performance improvements, I'm accepting pull requests! :)
+On that same 2018 MacBook Pro 15", scanning a 60+ GB music library takes
+24 seconds.  Back in 2013, with a typical 5400 RPM laptop hard drive
+it took around 15 minutes.  How times have changed!
 
 Tests
 -----
@@ -54,16 +55,21 @@ file in the `tests` directory to run it.
 Change Log
 ----------
 
-0.9.3
+1.0.0
 ~~~~~
+
+* significantly sped up execution on solid state drives by using
+  a process pool executor to calculate SHA1 hashes and perform `stat()`
+  calls; use `-w1` if your runs on slow magnetic drives were
+  negatively affected by this change
+
+* sped up execution by pre-loading all SQLite-stored hashes to memory
+  and doing comparisons using Python sets
 
 * all UTF-8 filenames are now normalized to NFKD in the database to
   enable cross-operating system checks
 
 * the SQLite database is now vacuumed to minimize its size
-
-* sped up execution by pre-loading all SQLite-stored hashes to memory
-  and doing comparisons using Python sets
 
 * bugfix: additional Python 3 fixes when Unicode names were encountered
 

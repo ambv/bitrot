@@ -45,7 +45,7 @@ from concurrent.futures import ProcessPoolExecutor, wait, as_completed
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 200
-VERSION = (0, 9, 2)
+VERSION = (1, 0, 0)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
 
