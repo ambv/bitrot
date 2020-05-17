@@ -44,6 +44,13 @@ in under 10 minutes. Both tests on HFS+.
 If you'd like to contribute some more rigorous benchmarks or any
 performance improvements, I'm accepting pull requests! :)
 
+Tests
+-----
+
+There's a simple but comprehensive test scenario using
+`BATS <https://github.com/sstephenson/bats>`.  Run the
+file in the `tests` directory to run it.
+
 Change Log
 ----------
 
