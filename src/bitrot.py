@@ -54,10 +54,11 @@ if sys.version[0] == '2':
 
 
 def normalize_path(path):
+    path_uni = path.decode(FSENCODING)
     if FSENCODING in ('utf-8', 'UTF-8'):
-        return unicodedata.normalize('NFKD', path)
-    else:
-        return path
+        return unicodedata.normalize('NFKD', path_uni)
+
+    return path_uni
 
 
 def sha1(path, chunk_size):
@@ -103,17 +104,17 @@ def get_sqlite3_cursor(path, copy=False):
 
 
 def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
-    """list_existing_paths('/dir') -> ([path1, path2, ...], total_size)
+    """list_existing_paths(b'/dir') -> ([path1, path2, ...], total_size)
 
-    Returns a tuple with a list with existing files in `directory` and their
-    `total_size`.
+    Returns a tuple with a set of existing files in `directory` and its subdirectories
+    and their `total_size`. If directory was a bytes object, so will be the returned
+    paths.
 
     Doesn't add entries listed in `ignored`.  Doesn't add symlinks if
     `follow_links` is False (the default).  All entries present in `expected`
     must be files (can't be directories or symlinks).
     """
     paths = set()
-    paths_decoded_and_normalized = set()
     total_size = 0
     for path, _, files in os.walk(directory):
         for f in files:
@@ -128,7 +129,7 @@ def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
                 continue
 
             try:
-                if follow_links or normalize_path(p_uni) in expected:
+                if follow_links or p_uni in expected:
                     st = os.stat(p)
                 else:
                     st = os.lstat(p)
@@ -139,9 +140,8 @@ def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
                 if not stat.S_ISREG(st.st_mode) or p in ignored:
                     continue
                 paths.add(p)
-                paths_decoded_and_normalized.add(normalize_path(p.decode(FSENCODING)))
                 total_size += st.st_size
-    return paths, total_size, paths_decoded_and_normalized
+    return paths, total_size
 
 
 class BitrotException(Exception):
@@ -190,13 +190,14 @@ class Bitrot(object):
         current_size = 0
         missing_paths = self.select_all_paths(cur)
         hashes = self.select_all_hashes(cur)
-        paths, total_size, paths_decoded_and_normalized = list_existing_paths(
+        paths, total_size = list_existing_paths(
             b'.', expected=missing_paths, ignored={bitrot_db, bitrot_sha512},
             follow_links=self.follow_links,
         )
+        paths_uni = set(normalize_path(p) for p in paths)
 
         for p in sorted(paths):
-            p_uni = p.decode(FSENCODING)
+            p_uni = normalize_path(p)
             try:
                 st = os.stat(p)
             except OSError as ex:
@@ -220,7 +221,7 @@ class Bitrot(object):
             if self.verbosity:
                 self.report_progress(current_size, total_size)
 
-            missing_paths.discard(normalize_path(p_uni))
+            missing_paths.discard(p_uni)
             try:
                 new_sha1 = sha1(p, self.chunk_size)
             except (IOError, OSError) as e:
@@ -232,28 +233,28 @@ class Bitrot(object):
                 )
                 continue
 
-            cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE '
-                        'path=?', (normalize_path(p_uni),))
+            cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE path=?',
+                        (p_uni,))
             row = cur.fetchone()
             if not row:
                 stored_path = self.handle_unknown_path(
-                    cur, p_uni, new_mtime, new_sha1, paths_decoded_and_normalized, hashes
+                    cur, p_uni, new_mtime, new_sha1, paths_uni, hashes
                 )
                 self.maybe_commit(conn)
 
                 if p_uni == stored_path:
-                    new_paths.append(p)   # FIXME: shouldn't that be p_uni?
+                    new_paths.append(p_uni)
                 else:
                     renamed_paths.append((stored_path, p_uni))
-                    missing_paths.discard(normalize_path(stored_path))
+                    missing_paths.discard(stored_path)
                 continue
 
             stored_mtime, stored_sha1, stored_ts = row
             if int(stored_mtime) != new_mtime:
-                updated_paths.append(p)
+                updated_paths.append(p_uni)
                 cur.execute('UPDATE bitrot SET mtime=?, hash=?, timestamp=? '
                             'WHERE path=?',
-                            (new_mtime, new_sha1, ts(), normalize_path(p_uni)))
+                            (new_mtime, new_sha1, ts(), p_uni))
                 self.maybe_commit(conn)
                 continue
 
@@ -268,7 +269,7 @@ class Bitrot(object):
                 )
 
         for path in missing_paths:
-            cur.execute('DELETE FROM bitrot WHERE path=?', (normalize_path(path),)) # it is expected that content of missing_paths is already normalized, but just to be sure
+            cur.execute('DELETE FROM bitrot WHERE path=?', (path,))
 
         conn.commit()
 
@@ -296,6 +297,10 @@ class Bitrot(object):
             )
 
     def select_all_paths(self, cur):
+        """Return a set of all distinct paths in the bitrot database.
+
+        The paths are Unicode and are normalized if FSENCODING was UTF-8.
+        """
         result = set()
         cur.execute('SELECT path FROM bitrot')
         row = cur.fetchone()
@@ -305,6 +310,10 @@ class Bitrot(object):
         return result
 
     def select_all_hashes(self, cur):
+        """Return a dict where keys are hashes and values are sets of paths.
+
+        The paths are Unicode and are normalized if FSENCODING was UTF-8.
+        """
         result = {}
         cur.execute('SELECT hash, path FROM bitrot')
         row = cur.fetchone()
@@ -326,6 +335,7 @@ class Bitrot(object):
     def report_done(
         self, total_size, all_count, error_count, new_paths, updated_paths,
         renamed_paths, missing_paths):
+        """Print a report on what happened.  All paths should be Unicode here."""
         print('\rFinished. {:.2f} MiB of data read. {} errors found.'
             ''.format(total_size/1024/1024, error_count))
         if self.verbosity == 1:
@@ -342,12 +352,12 @@ class Bitrot(object):
                 print('{} entries new:'.format(len(new_paths)))
                 new_paths.sort()
                 for path in new_paths:
-                    print(' ', path.decode(FSENCODING))
+                    print(' ', path)
             if updated_paths:
                 print('{} entries updated:'.format(len(updated_paths)))
                 updated_paths.sort()
                 for path in updated_paths:
-                    print(' ', path.decode(FSENCODING))
+                    print(' ', path)
             if renamed_paths:
                 print('{} entries renamed:'.format(len(renamed_paths)))
                 renamed_paths.sort()
@@ -368,7 +378,7 @@ class Bitrot(object):
         if self.test and self.verbosity:
             print('warning: database file not updated on disk (test mode).')
 
-    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1, paths_decoded_and_normalized, hashes):
+    def handle_unknown_path(self, cur, new_path, new_mtime, new_sha1, paths_uni, hashes):
         """Either add a new entry to the database or update the existing entry
         on rename.
 
@@ -377,12 +387,12 @@ class Bitrot(object):
         """
 
         try: # if the path isn't in the database
-            found = [path for path in hashes[new_sha1] if path not in paths_decoded_and_normalized]
+            found = [path for path in hashes[new_sha1] if path not in paths_uni]
             renamed = found.pop()
             # update the path in the database
             cur.execute(
                 'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
-                (new_mtime, normalize_path(new_path), ts(), normalize_path(renamed)),
+                (new_mtime, new_path, ts(), renamed),
             )
 
             return renamed
@@ -391,7 +401,7 @@ class Bitrot(object):
         except (KeyError,IndexError):
             cur.execute(
                 'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
-                (normalize_path(new_path), new_mtime, new_sha1, ts()),
+                (new_path, new_mtime, new_sha1, ts()),
             )
             return new_path
 
