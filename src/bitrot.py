@@ -382,23 +382,29 @@ class Bitrot(object):
         """Either add a new entry to the database or update the existing entry
         on rename.
 
-        Returns `new_path` if the entry was indeed new or the `stored_path` (e.g.
-        outdated path) if there was a rename.
+        `cur` is the database cursor. `new_path` is the new Unicode path.
+        `paths_uni` are Unicode paths seen on disk during this run of Bitrot.
+        `hashes` is a dictionary selected from the database, keys are hashes, values
+        are sets of Unicode paths that are stored in the DB under the given hash.
+
+        Returns `new_path` if the entry was indeed new or the `old_path` (e.g.
+        outdated path stored in the database for this hash) if there was a rename.
         """
 
-        try: # if the path isn't in the database
-            found = [path for path in hashes[new_sha1] if path not in paths_uni]
-            renamed = found.pop()
-            # update the path in the database
-            cur.execute(
-                'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
-                (new_mtime, new_path, ts(), renamed),
-            )
+        for old_path in hashes.get(new_sha1, ()):
+            if old_path not in paths_uni:
+                # File of the same hash used to exist but no longer does.
+                # Let's treat `new_path` as a renamed version of that `old_path`.
+                cur.execute(
+                    'UPDATE bitrot SET mtime=?, path=?, timestamp=? WHERE path=?',
+                    (new_mtime, new_path, ts(), old_path),
+                )
+                return old_path
 
-            return renamed
-
-        # From hashes[new_sha1] or found.pop()
-        except (KeyError,IndexError):
+        else:
+            # Either we haven't found `new_sha1` at all in the database, or all
+            # currently stored paths for this hash still point to existing files.
+            # Let's insert a new entry for what appears to be a new file.
             cur.execute(
                 'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
                 (new_path, new_mtime, new_sha1, ts()),
