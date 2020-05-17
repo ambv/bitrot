@@ -40,6 +40,8 @@ import tempfile
 import time
 import unicodedata
 
+from concurrent.futures import ProcessPoolExecutor, wait, as_completed
+
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 200
@@ -144,6 +146,43 @@ def list_existing_paths(directory, expected=(), ignored=(), follow_links=False):
     return paths, total_size
 
 
+def compute_one(path, chunk_size):
+    """Return a tuple with (unicode path, size, mtime, sha1). Takes a binary path."""
+    p_uni = normalize_path(path)
+    try:
+        st = os.stat(path)
+    except OSError as ex:
+        if ex.errno in IGNORED_FILE_SYSTEM_ERRORS:
+            # The file disappeared between listing existing paths and
+            # this run or is (temporarily?) locked with different
+            # permissions. We'll just skip it for now.
+            print(
+                '\rwarning: `{}` is currently unavailable for '
+                'reading: {}'.format(
+                    p_uni, ex,
+                ),
+                file=sys.stderr,
+            )
+            raise BitrotException
+
+        raise   # Not expected? https://github.com/ambv/bitrot/issues/
+
+    new_mtime = int(st.st_mtime)
+
+    try:
+        new_sha1 = sha1(path, chunk_size)
+    except (IOError, OSError) as e:
+        print(
+            '\rwarning: cannot compute hash of {} [{}]'.format(
+                p_uni, errno.errorcode[e.args[0]],
+            ),
+            file=sys.stderr,
+        )
+        raise BitrotException
+
+    return p_uni, st.st_size, int(st.st_mtime), new_sha1
+
+
 class BitrotException(Exception):
     pass
 
@@ -151,7 +190,7 @@ class BitrotException(Exception):
 class Bitrot(object):
     def __init__(
         self, verbosity=1, test=False, follow_links=False, commit_interval=300,
-        chunk_size=DEFAULT_CHUNK_SIZE,
+        chunk_size=DEFAULT_CHUNK_SIZE, workers=os.cpu_count(),
     ):
         self.verbosity = verbosity
         self.test = test
@@ -160,6 +199,7 @@ class Bitrot(object):
         self.chunk_size = chunk_size
         self._last_reported_size = ''
         self._last_commit_ts = 0
+        self.pool = ProcessPoolExecutor(max_workers=workers)
 
     def maybe_commit(self, conn):
         if time.time() < self._last_commit_ts + self.commit_interval:
@@ -195,43 +235,17 @@ class Bitrot(object):
             follow_links=self.follow_links,
         )
         paths_uni = set(normalize_path(p) for p in paths)
+        futures = [self.pool.submit(compute_one, p, self.chunk_size) for p in paths]
 
-        for p in sorted(paths):
-            p_uni = normalize_path(p)
+        for future in as_completed(futures):
             try:
-                st = os.stat(p)
-            except OSError as ex:
-                if ex.errno in IGNORED_FILE_SYSTEM_ERRORS:
-                    # The file disappeared between listing existing paths and
-                    # this run or is (temporarily?) locked with different
-                    # permissions. We'll just skip it for now.
-                    print(
-                        '\rwarning: `{}` is currently unavailable for '
-                        'reading: {}'.format(
-                            p_uni, ex,
-                        ),
-                        file=sys.stderr,
-                    )
-                    continue
+                p_uni, new_size, new_mtime, new_sha1 = future.result()
+            except BitrotException:
+                continue
 
-                raise   # Not expected? https://github.com/ambv/bitrot/issues/
-
-            new_mtime = int(st.st_mtime)
-            current_size += st.st_size
+            current_size += new_size
             if self.verbosity:
                 self.report_progress(current_size, total_size)
-
-            try:
-                new_sha1 = sha1(p, self.chunk_size)
-            except (IOError, OSError) as e:
-                print(
-                    '\rwarning: cannot compute hash of {} [{}]'.format(
-                        p, errno.errorcode[e.args[0]],
-                    ),
-                    file=sys.stderr,
-                )
-                missing_paths.discard(p_uni)
-                continue
 
             if p_uni not in missing_paths:
                 # We are not expecting this path, it wasn't in the database yet.
@@ -271,11 +285,11 @@ class Bitrot(object):
                 continue
 
             if stored_sha1 != new_sha1:
-                errors.append(p)
+                errors.append(p_uni)
                 print(
                     '\rerror: SHA1 mismatch for {}: expected {}, got {}.'
                     ' Last good hash checked on {}.'.format(
-                        p.decode(FSENCODING), stored_sha1, new_sha1, stored_ts
+                        p_uni, stored_sha1, new_sha1, stored_ts
                     ),
                     file=sys.stderr,
                 )
@@ -539,6 +553,9 @@ def run_from_command_line():
         help='min time in seconds between commits '
              '(0 commits on every operation)')
     parser.add_argument(
+        '-w', '--workers', type=int, default=os.cpu_count(),
+        help='run this many workers (use -w1 for slow magnetic disks)')
+    parser.add_argument(
         '--chunk-size', type=int, default=DEFAULT_CHUNK_SIZE,
         help='read files this many bytes at a time')
     parser.add_argument(
@@ -563,6 +580,7 @@ def run_from_command_line():
             follow_links=args.follow_links,
             commit_interval=args.commit_interval,
             chunk_size=args.chunk_size,
+            workers=args.workers,
         )
         if args.fsencoding:
             FSENCODING = args.fsencoding

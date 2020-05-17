@@ -58,8 +58,8 @@ setup(
     include_package_data = True,
     zip_safe = False, # if only because of the readme file
     install_requires = [
+        'futures; python_version == "2.7"'
     ],
-
     classifiers = [
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: MIT License',
