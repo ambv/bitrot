@@ -271,7 +271,7 @@ class Bitrot(object):
             cur.execute('DELETE FROM bitrot WHERE path=?', (normalize_path(path),)) # it is expected that content of missing_paths is already normalized, but just to be sure
 
         conn.commit()
-        
+
         if not self.test:
             cur.execute('vacuum')
 
@@ -308,7 +308,7 @@ class Bitrot(object):
         result = {}
         cur.execute('SELECT hash, path FROM bitrot')
         row = cur.fetchone()
-        while row: 
+        while row:
             rhash, rpath = row
             result.setdefault(rhash, set()).add(rpath)
             row = cur.fetchone()
@@ -386,8 +386,8 @@ class Bitrot(object):
             )
 
             return renamed
-        
-        # From hashes[new_sha1] or found.pop() 
+
+        # From hashes[new_sha1] or found.pop()
         except (KeyError,IndexError):
             cur.execute(
                 'INSERT INTO bitrot VALUES (?, ?, ?, ?)',
