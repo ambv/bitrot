@@ -54,8 +54,8 @@ if sys.version[0] == '2':
 
 
 def normalize_path(path):
-    if FSENCODING == 'utf-8' or FSENCODING == 'UTF-8':
-        return unicodedata.normalize('NFKC', path)
+    if FSENCODING in ('utf-8', 'UTF-8'):
+        return unicodedata.normalize('NFKD', path)
     else:
         return path
 
