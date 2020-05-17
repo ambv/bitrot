@@ -221,7 +221,6 @@ class Bitrot(object):
             if self.verbosity:
                 self.report_progress(current_size, total_size)
 
-            missing_paths.discard(p_uni)
             try:
                 new_sha1 = sha1(p, self.chunk_size)
             except (IOError, OSError) as e:
@@ -231,22 +230,35 @@ class Bitrot(object):
                     ),
                     file=sys.stderr,
                 )
+                missing_paths.discard(p_uni)
                 continue
 
-            cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE path=?',
-                        (p_uni,))
-            row = cur.fetchone()
-            if not row:
+            if p_uni not in missing_paths:
+                # We are not expecting this path, it wasn't in the database yet.
+                # It's either new or a rename. Let's handle that.
                 stored_path = self.handle_unknown_path(
                     cur, p_uni, new_mtime, new_sha1, paths_uni, hashes
                 )
                 self.maybe_commit(conn)
-
                 if p_uni == stored_path:
                     new_paths.append(p_uni)
+                    missing_paths.discard(p_uni)
                 else:
                     renamed_paths.append((stored_path, p_uni))
                     missing_paths.discard(stored_path)
+                continue
+
+            # At this point we know we're seeing an expected file.
+            missing_paths.discard(p_uni)
+            cur.execute('SELECT mtime, hash, timestamp FROM bitrot WHERE path=?',
+                        (p_uni,))
+            row = cur.fetchone()
+            if not row:
+                print(
+                    '\rwarning: path disappeared from the database while running:',
+                    p_uni,
+                    file=sys.stderr,
+                )
                 continue
 
             stored_mtime, stored_sha1, stored_ts = row
