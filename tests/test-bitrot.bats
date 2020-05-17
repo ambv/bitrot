@@ -6,7 +6,7 @@ LANG=en_US.UTF-8
 cmd='python -m bitrot'
 test_dir=/tmp/bitrot_dir-$USER
 mkdir -p $test_dir
-cd $test_dir || exit 
+cd $test_dir || exit
 
 @test "bitrot command exists" {
     run $cmd --help
@@ -128,7 +128,7 @@ cd $test_dir || exit
     mv nonemptydirs/pl-more-files-b.txt  nonemptydirs/pl-more-files-b.txt2
     cp nonemptydirs/pl-more-files-g.txt  nonemptydirs/pl2-more-files-g.txt2
     cp nonemptydirs/pl-more-files-d.txt  nonemptydirs/pl2-more-files-d.txt2
-    rm more-files-f.txt nonemptydirs/pl-more-files-c.txt 
+    rm more-files-f.txt nonemptydirs/pl-more-files-c.txt
     run $cmd -v
 
     [ "$status" -eq 0 ]
@@ -162,7 +162,7 @@ cd $test_dir || exit
     # split it in 3277 files (instantly) + masterfile = 3278
     split -b 100 -a 10 masterfile
     cd $test_dir
-    run $cmd 
+    run $cmd
 
     [ "$status" -eq 0 ]
     [[ ${lines[2]} = "3299 entries in the database, 3278 new, 0 updated, 0 renamed, 0 missing." ]]
@@ -171,7 +171,7 @@ cd $test_dir || exit
 @test "bitrot can operate with 3278 files easily in a dir (2)" {
     sleep 1
     mv alotfiles/here alotfiles/here-moved
-    run $cmd 
+    run $cmd
 
     [ "$status" -eq 0 ]
     [[ ${lines[2]}   = "3299 entries in the database, 0 new, 0 updated, 3278 renamed, 0 missing." ]]
@@ -195,9 +195,9 @@ cd $test_dir || exit
 
 @test "bitrot can detect rotten bits in a dir (2)" {
     sleep 1
-    # modify the rotten file... 
-    dd if=/dev/urandom of=rotten-file bs=1k count=10 seek=1k conv=notrunc &>/dev/null 
-    # ...but revert the modification date 
+    # modify the rotten file...
+    dd if=/dev/urandom of=rotten-file bs=1k count=10 seek=1k conv=notrunc &>/dev/null
+    # ...but revert the modification date
     touch -r non-rotten-file rotten-file
     run $cmd -q
 
