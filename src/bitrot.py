@@ -167,8 +167,6 @@ def compute_one(path, chunk_size):
 
         raise   # Not expected? https://github.com/ambv/bitrot/issues/
 
-    new_mtime = int(st.st_mtime)
-
     try:
         new_sha1 = sha1(path, chunk_size)
     except (IOError, OSError) as e:
