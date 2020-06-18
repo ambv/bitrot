@@ -40,7 +40,7 @@ import tempfile
 import time
 import unicodedata
 
-from concurrent.futures import ProcessPoolExecutor, wait, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
