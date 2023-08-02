@@ -50,7 +50,7 @@ Tests
 
 There's a simple but comprehensive test scenario using
 `pytest <https://pypi.org/p/pytest>`_ and
-`pytest-order <https://pypi.org/p/pytest-order>`.
+`pytest-order <https://pypi.org/p/pytest-order>`_.
 
 Install::
 
