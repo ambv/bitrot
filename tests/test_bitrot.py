@@ -2,6 +2,8 @@
 NOTE: those tests are ordered and require pytest-order to run correctly.
 """
 
+from __future__ import annotations
+
 import getpass
 import os
 from pathlib import Path

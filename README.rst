@@ -56,8 +56,7 @@ Install::
 
   $ python3 -m venv .venv
   $ . .venv/bin/activate
-  (.venv)$ pip install -e .
-  (.venv)$ pip install -r tests/test_requirements.txt
+  (.venv)$ pip install -e .[test]
 
 Run::
 
@@ -74,6 +73,13 @@ Run::
 
 Change Log
 ----------
+
+1.0.1
+~~~~~
+
+* officially remove Python 2 support that was broken since 1.0.0
+  anyway; now the package works with Python 3.8+ because of a few
+  features
 
 1.0.0
 ~~~~~

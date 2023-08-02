@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 
 # Copyright (C) 2013 by Łukasz Langa
 
@@ -21,10 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import annotations
 
 import argparse
 import atexit
@@ -41,18 +37,17 @@ import time
 import unicodedata
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from importlib.metadata import version, PackageNotFoundError
 
 
 DEFAULT_CHUNK_SIZE = 16384  # block size in HFS+; 4X the block size in ext4
 DOT_THRESHOLD = 200
-VERSION = (1, 0, 0)
 IGNORED_FILE_SYSTEM_ERRORS = {errno.ENOENT, errno.EACCES}
 FSENCODING = sys.getfilesystemencoding()
-
-
-if sys.version[0] == '2':
-    str = type(u'text')
-    # use `bytes` for bytestrings
+try:
+    VERSION = version("bitrot")
+except PackageNotFoundError:
+    VERSION = "1.0.1"
 
 
 def normalize_path(path):
@@ -545,7 +540,7 @@ def run_from_command_line():
         help='just test against an existing database, don\'t update anything')
     parser.add_argument(
         '--version', action='version',
-        version='%(prog)s {}.{}.{}'.format(*VERSION))
+        version=f"%(prog)s {VERSION}")
     parser.add_argument(
         '--commit-interval', type=float, default=300,
         help='min time in seconds between commits '
