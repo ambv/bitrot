@@ -49,8 +49,28 @@ Tests
 -----
 
 There's a simple but comprehensive test scenario using
-`BATS <https://github.com/sstephenson/bats>`.  Run the
-file in the `tests` directory to run it.
+`pytest <https://pypi.org/p/pytest>`_ and
+`pytest-order <https://pypi.org/p/pytest-order>`.
+
+Install::
+
+  $ python3 -m venv .venv
+  $ . .venv/bin/activate
+  (.venv)$ pip install -e .
+  (.venv)$ pip install -r tests/test_requirements.txt
+
+Run::
+
+  (.venv)$ pytest -x
+  ==================== test session starts ====================
+  platform darwin -- Python 3.10.12, pytest-7.4.0, pluggy-1.2.0
+  rootdir: /Users/ambv/Documents/Python/bitrot
+  plugins: order-1.1.0
+  collected 12 items
+
+  tests/test_bitrot.py ............                      [100%]
+
+  ==================== 12 passed in 15.05s ====================
 
 Change Log
 ----------
