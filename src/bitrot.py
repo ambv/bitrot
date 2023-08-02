@@ -37,6 +37,7 @@ import time
 import unicodedata
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import freeze_support
 from importlib.metadata import version, PackageNotFoundError
 
 
@@ -514,6 +515,8 @@ def update_sha512_integrity(verbosity=1):
 
 def run_from_command_line():
     global FSENCODING
+
+    freeze_support()
 
     parser = argparse.ArgumentParser(prog='bitrot')
     parser.add_argument(
