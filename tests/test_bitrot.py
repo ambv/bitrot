@@ -337,3 +337,12 @@ def test_rotten_file_2() -> None:
     )
     assert err[0].startswith(e)
     assert err[1] == "error: There were 1 errors found."
+
+
+@pytest.mark.order("last")
+def test_cleanup() -> None:
+    username = getpass.getuser()
+    test_dir = TMP / f"bitrot-dir-{username}"
+    if test_dir.is_dir():
+        os.chdir(TMP)
+        shutil.rmtree(test_dir)
