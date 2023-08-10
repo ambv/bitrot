@@ -78,7 +78,7 @@ Change Log
 ~~~~~
 
 * officially remove Python 2 support that was broken since 1.0.0
-  anyway; now the package works with Python 3.8+ because of a few
+  anyway; now the package works with Python 3.9+ because of a few
   features
 
 1.0.0
