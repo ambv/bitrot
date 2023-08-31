@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Detects bit rotten files on the hard drive to save your precious photo and music collection from slow decay."
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 keywords = ["file", "checksum", "database"]
 license = {text = "MIT"}
 classifiers = [
