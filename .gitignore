@@ -1,2 +1,7 @@
 .bitrot.db
 .bitrot.sha512
+
+_version.py
+
+__pycache__
+*.egg-info
