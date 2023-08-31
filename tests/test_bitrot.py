@@ -15,13 +15,14 @@ from textwrap import dedent
 
 import pytest
 
+from typing import TYPE_CHECKING
 
 TMP = Path("/tmp/")
 
-
-ReturnCode = int
-StdOut = list[str]
-StdErr = list[str]
+if TYPE_CHECKING:
+    ReturnCode = int
+    StdOut = list[str]
+    StdErr = list[str]
 
 
 def bitrot(*args: str) -> tuple[ReturnCode, StdOut, StdErr]:
